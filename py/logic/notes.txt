@@ -1,0 +1,174 @@
+
+
+kglib = reload(kglib)
+plain = [0xB7, 0x68, 0x83, 0x6E, 0x97, 0x20, 0xD1, 0xF2, 0xAF, 0x9E, 0x35, 0xCF, 0x1C, 0xCA, 0x87, 0x99, 0xAB, 0x05, 0xCC, 0x9A, 0xCB, 0x46, 0xBF, 0x74, 0x49, 0x38, 0x13, 0x57, 0xA4, 0xA3, 0xD5, 0x76]
+ciphr = [0x30, 0x68, 0x6f, 0x77, 0x34, 0x7a, 0x64, 0x79, 0x38, 0x31, 0x6a, 0x70, 0x65, 0x35, 0x78, 0x66, 0x75, 0x39, 0x32, 0x6b, 0x61, 0x72, 0x36, 0x63, 0x67, 0x69, 0x71, 0x33, 0x6c, 0x73, 0x74, 0x37]
+bss = 32*[None]
+for i in range(32):
+    bitrange = [(-i+j)%32 for j in range(8)]
+    bss[i] = kglib.BoolSystem(8)
+    bss[i].bitEquVal(8, plain[i])
+    bss[i].subtracter(map(lambda x: kglib.BoolParser("ebx%d" % x), bitrange))
+    bss[i].xorer(map(lambda x: kglib.BoolParser("edx%d" % x), bitrange))
+    bss[i].loadTargetsFromBits(8, ciphr[i])
+
+temp = reduce(lambda x,y: x+y, bss)
+temp.satSolve()
+
+kglib = reload(kglib)
+bs = kglib.BoolSystem(256)
+bs.bitEquVar(24, 'x')
+print bs
+for i in range(24):
+  bs.equs[i].expr = bs.equs[i].expr ^ kglib.BoolParser('x%d' % ((i-8)%24))
+  bs.equs[i].expr = bs.equs[i].expr ^ kglib.BoolParser('x%d' % ((i-14)%24))
+  bs.equs[i] = bs.equs[i].simplify()
+
+bs.loadTargetsFromBits(24, 0xA97D05)
+
+import kglib
+kglib = reload(kglib)
+bs = kglib.BoolSystem(32)
+bs.bitEquVar(32, 'a')
+bs.bitXorVal(32, 0xDEADBEEF)
+bs.loadTargetsFromBits(32, 0xCAFEBABE)
+bs.simplify()
+print bs
+print bs.satSolve()
+
+import kglib
+kglib = reload(kglib)
+bz = kglib.BoolSystem(32)
+bz.bitEquVal(32, 0xDEADBEEF)
+bz.bitAddVar(32, 'a')
+bz.bitXorVar(32, 'a')
+bz.loadTargetsFromBits(32, 0x6352c313)
+bz.simplify()
+print bz
+print bz.satSolve()
+
+golden!
+import kglib
+kglib = reload(kglib)
+bs = kglib.BoolSystem(2)
+bs.bitEquVar(2, 'a')
+bs.bitXorVar(2, 'b')
+bs.bitXorVal(2, 0x1)
+bs.loadTargetsFromBits(2, 0x0)
+bs.simplify()
+bs.satSolve()
+print bs
+
+import kglib
+kglib = reload(kglib)
+bs = kglib.BoolSystem(1)
+bs.bitEquVar(1, 'a')
+bs.bitXorVar(1, 'b')
+bs.bitXorVal(1, 0x1)
+bs.loadTargetsFromBits(1, 0x0)
+bs.simplify()
+bs.satSolve()
+print bs
+
+
+kglib = reload(kglib)
+be = kglib.BoolParser('a*1')
+print be.TseitinTransform()
+
+kglib = reload(kglib)
+bs = kglib.BoolSystem(4)
+bs.bitEquVar(4, 'a')
+bs.bitAddVar(4, 'b')
+bs.loadTargetsFromBits(4, 0xA)
+be = bs.equs[1].expr
+print be.TseitinTransform(['gate0'])
+
+kglib = reload(kglib)
+bs2 = kglib.BoolSystem(2)
+bs2.equs[0].expr = kglib.BoolParser("a+b")
+bs2.equs[1].expr = kglib.BoolParser("(a*/b)+(/a*b)")
+bs2.equs[0].target = 1
+bs2.equs[1].target = 0
+print bs2
+bs2.satSolve()
+
+kglib = reload(kglib)
+bs = kglib.BoolSystem(8)
+bs.bitEquVar(8, 'a')
+bs.bitAddVar(8, 'b')
+bs.loadTargetsFromBits(8, 0x5E)
+bs.satSolve()
+
+11111111
+01011111
+--------
+01011110
+
+1111
+1011
+----
+1010
+
+be = bs.equs[1].expr
+print be.TseitinTransform(['gate0'])
+
+
+kglib = reload(kglib)
+be = kglib.BoolParser("/a*/d")
+print be
+print ~be
+print be.TseitinTransform()
+
+kglib = reload(kglib)
+be = kglib.BoolParser("(/a*/b*c + /a*b*/c + a*/b*/c)*/c*/a")
+TseiExpr = be.TseitinTransformTargetting(1)
+kglib.PicosatPipeSolve(TseiExpr)
+
+# test Picosat
+kglib = reload(kglib)
+be = kglib.BoolParser("a*/b+/a*b")
+TseiExpr = be.TseitinTransformTargetting(1)
+print TseiExpr
+kglib.PicosatPipeSolve(TseiExpr)
+
+
+
+#here! big fat gatef sticking out front
+kglib = reload(kglib)
+bs = kglib.BoolSystem(4)
+bs.bitEquVar(4, 'a')
+bs.bitAddVar(4, 'b')
+bs.loadTargetsFromBits(4, 0xA)
+be = bs.equs[1].expr
+print be.TseitinTransform()
+
+# can it add?
+kglib = reload(kglib)
+bs = kglib.BoolSystem(4)
+bs.bitEquVar(4, 'a')
+bs.bitAddVar(4, 'b')
+bs.loadTargetsFromBits(4, 0xA)
+print bs
+bs.satSolve()
+
+adder:
+kglib = reload(kglib)
+bs = kglib.BoolSystem(8)
+bs.bitEquVar(8, 'a')
+bs.bitAddVar(8, 'b')
+bs.assignBits(8, 'a', 0x24)
+bs.assignBits(8, 'b', 0x48)
+bs.simplify()
+print bs
+
+#subber
+kglib = reload(kglib)
+bs = kglib.BoolSystem(8)
+bs.bitEquVar(8, 'a')
+bs.bitSubVar(8, 'b')
+bs.assignBits(8, 'a', 0xFE)
+bs.assignBits(8, 'b', 0x48)
+# should result in 0xB6
+bs.simplify()
+print bs
+
