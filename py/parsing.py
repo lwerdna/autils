@@ -24,10 +24,12 @@ import re
 import string
 from struct import pack, unpack
 
-###############################################################################
-# argument/command type parsing
-###############################################################################
+#------------------------------------------------------------------------------
+# binary/byte parsing 
+#------------------------------------------------------------------------------
 
+# eg: "0xDEADBEEF" returns 0xDEADBEEF
+# will pick out first instance of hex value
 # eg: "8000 8FFF DE AD BE EF" returns 0x8000 
 def parseHexValue(line):
     toks = re.split('\s', line)
@@ -36,38 +38,17 @@ def parseHexValue(line):
         if re.match('^(0x)?[0-9A-Fa-f]+$', t):
             return int(t,16)
 
-# eg: "8000 L1000" returns [0x8000, 0x1000]
-def parseAddressRange(line_in, default_size=256):
-    line = line_in
-    toks = line.split(' ')
-
-    # no params? 0 0
-    if(not toks):
-        return [0, 0]
-
-    # at least one param? parse start address
-    start = int(toks[0], 16);
-
-    size = default_size
-    if(len(toks) > 1):
-        if(toks[1][0] == 'l' or toks[1][0] == 'L'):
-            size = int(toks[1][1:], 16)
-        else:
-            end = int(toks[1], 16)
-            size = end-start;
-
-    return [start, size]
+    raise Exception('couldn\'t parse %s' % line)
 
 # eg: "DE AD BE EF" returns [0xDE, 0xAD, 0xBE, 0xEF]
 def parseBytes(text):
-    bytes = [] 
+    rv = '' 
     toks = re.split('\s', text)
     for t in toks:
         if re.match('^[0-9A-Fa-f][0-9A-Fa-f]$', t):
-            bytes.append(int(t, 16))
-            pass
+            rv += chr(int(t, 16))
 
-    return bytes
+    return rv 
 
 # this is useful for parsing output from objdump, which can come
 # as a list of bytes, list of words, etc.
@@ -82,7 +63,6 @@ def parseBytes(text):
 # 192a: d031      	beq.n	1990 <.text+0x150>
 # 192c: f8d8 300c 	ldr.w	r3, [r8, #12]
 #
-
 def parseDwordsWordsBytes(text, endian='little'):
     bytes = ''
 
@@ -117,6 +97,69 @@ def parseDwordsWordsBytes(text, endian='little'):
     #print "returning bytes: ", repr(bytes)
     return bytes
 
+# parse all the bytes from a hex dump
+def parseBytesFromHexDump(text, doubleSpace=None):
+    bytes = ''
+
+    lines = text.split('\n')
+
+    # expects format <address><optional space>: AA BB CC <ascii>
+    regex = r'^[0-9a-fA-F]{1,16}\s?: (.*)  '
+    if doubleSpace:
+        # expects format <address><optional space>: AA BB CC<two spaces><ascii>
+        regex = r'^[0-9a-fA-F]{1,16}\s?: (.*) '
+
+    for i,l in enumerate(lines):
+        m = re.match(regex, l)
+        if m:
+            bytes += parseBytes(m.group(1))
+
+    #print "returning bytes: ", bytes
+    return bytes
+
+#------------------------------------------------------------------------------
+# utilities for argument/command 
+#------------------------------------------------------------------------------
+
+# eg: consumeTokens("one two three") -> "two three"
+def consumeTokens(line, deliminator=' ', n=1):
+    tokens = line.split(deliminator)
+    return deliminator.join(tokens[n:])
+
+def consumeToken(line, deliminator=' ', n=1):
+    return consumeTokens(line, deliminator, n)
+
+#------------------------------------------------------------------------------
+# argument/command type parsing
+#------------------------------------------------------------------------------
+
+# from windbg "db" syntax...
+# eg: "8000 L1000" returns [0x8000, 0x1000]
+def parseAddressRange(line_in, default_size=256):
+    line = line_in
+    toks = line.split(' ')
+
+    # no params? 0 0
+    if(not toks):
+        return [0, 0]
+
+    # at least one param? parse start address
+    start = int(toks[0], 16);
+
+    size = default_size
+    if(len(toks) > 1):
+        if(toks[1][0] == 'l' or toks[1][0] == 'L'):
+            size = int(toks[1][1:], 16)
+        else:
+            end = int(toks[1], 16)
+            size = end-start;
+
+    return [start, size]
+
+#------------------------------------------------------------------------------
+# tests 
+#------------------------------------------------------------------------------
+
 # main
 if __name__ == '__main__':
     # test getFirstHexInt()
@@ -149,4 +192,42 @@ if __name__ == '__main__':
         print "FAIL!"
         print parseBytes(text)
 
+    input = "one time I had a"
+    output = consumeTokens(input, " ", 0)
+    if output == "one time I had a":
+        print "PASS!"
+    else:
+        print "FAIL!"
 
+    input = "one time I had a"
+    output = consumeTokens(input, " ", 1)
+    if output == "time I had a":
+        print "PASS!"
+    else:
+        print "FAIL!"
+
+    input = "one time I had a"
+    output = consumeTokens(input, " ", 2)
+    if output == "I had a":
+        print "PASS!"
+    else:
+        print "FAIL!"
+
+    input = "one time I had a"
+    output = consumeTokens(input, " ", 5)
+    if output == "":
+        print "PASS!"
+    else:
+        print "FAIL!"
+
+    input = "one time I had a"
+    output = consumeTokens(input, " ", 100)
+    if output == "":
+        print "PASS!"
+    else:
+        print "FAIL!"
+
+    if '' == consumeTokens("test", " ", 1):
+        print "PASS!"
+    else:
+        print "FAIL!"

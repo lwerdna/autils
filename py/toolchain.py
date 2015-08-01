@@ -3,7 +3,7 @@
 #
 #    This file is a part of alib.
 #
-#    Copyright 2011-2013 Andrew Lamoureux
+#    Copyright 2011-2014 Andrew Lamoureux
 #
 #    alib is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -20,21 +20,29 @@
 #
 #------------------------------------------------------------------------------
 
+G_TOOLCHAIN_DEBUG = True
+
 import re
 import os
 import sys
 import string
 import struct
 import tempfile
+import parsing
+import binascii
+import readline
 
 import elf
 import bytes
 import utils
 
-def assembleToString(source, toolchainSettings):
-    result = ''
+def assemble(source, toolchainSettings):
     (asm_handle, asm_name) = tempfile.mkstemp(suffix='.s')
     (obj0_handle, obj0_name) = tempfile.mkstemp(suffix='.o')
+
+    if G_TOOLCHAIN_DEBUG: 
+        print "asm_name: %s" % asm_name
+        print "obj0_name: %s" % obj0_name
 
     # create asm input file
     asm_obj = os.fdopen(asm_handle, 'w')
@@ -44,21 +52,15 @@ def assembleToString(source, toolchainSettings):
     # assemble to object file
     cmd = '%s %s %s -o %s' % \
             (toolchainSettings['as'], toolchainSettings['as_flags'], asm_name, obj0_name)
-    output = utils.runGetOutput(cmd) 
-    print cmd
+    output = utils.runGetOutput(cmd, G_TOOLCHAIN_DEBUG) 
 
     # disassemble output file
     cmd = '%s -d %s %s' % (toolchainSettings['objdump'], toolchainSettings['objdump_flags'], obj0_name) 
-    output = utils.runGetOutput(cmd)
+    output = utils.runGetOutput(cmd, G_TOOLCHAIN_DEBUG)
 
-    # delete temp files
-    if 1:
-        os.unlink(asm_name)
-        os.unlink(obj0_name)
-
-    # output into list of lines
+    # parse disassembly output
+    blob = ''
     lines = output.split("\n")
-
     for l in lines:
         # is it a disassembly line, for example;
         # (arm example)    
@@ -72,10 +74,58 @@ def assembleToString(source, toolchainSettings):
         m = re.match(reStr, l)
         if m:
             #print "parsing: " + m.group(1)
-            result += bytes.parseDwordsWordsBytes(m.group(1))
-            #print "got result: ", bytes.getStrAsHex(result)
+            blob += parsing.parseDwordsWordsBytes(m.group(1))
+            #print "got blob: ", bytes.getStrAsHex(blob)
 
-    return result
+    # parse symbol table
+    cmd = '%s -t %s %s' % (toolchainSettings['objdump'], toolchainSettings['objdump_flags'], obj0_name) 
+    output = utils.runGetOutput(cmd, G_TOOLCHAIN_DEBUG)
+
+    syms = {}
+    lines = output.split("\n")
+    for l in lines:
+        # eg:
+        # 00000000 l    d  .text	00000000 .text
+        # 00000000 l    d  .data	00000000 .data
+        # 00000000 l    d  .bss	00000000 .bss
+        # deadbef0 l       *ABS*	00000000 MARKER_ORIG_BYTES0
+        # deadbef1 l       *ABS*	00000000 MARKER_ORIG_BYTES1
+        # deadbef2 l       *ABS*	00000000 MARKER_ADDR_RETURN
+        # 00000060 l       .text	00000000 context
+        reStr = r'^' + \
+                r'(?P<val_addr>[a-f0-9]{8})\s+' + \
+                r'(?P<flags>[lgu\!wCWIidDFfo ]+)\s+' + \
+                r'(?P<section>\S+)\s+' + \
+                r'(?P<align_size>[a-f0-9]{8})\s+' + \
+                r'(?P<name>\S+)\s*' + \
+                r'$'
+
+        m = re.match(reStr, l)
+        if m:
+            #if G_TOOLCHAIN_DEBUG:
+            #    print "DID MATCH ON SYMBOL INFO LINE:\n%s" % l
+
+            #syms.append( \
+            #    {   'val_addr' : int(m.group('val_addr'), 16), \
+            #        'flags' : m.group('flags'), \
+            #        'section' : m.group('section'), \
+            #        'align_size' : int(m.group('align_size'), 16), \
+            #        'name' : m.group('name')
+            #    }
+            #)
+            syms[m.group('name')] = int(m.group('val_addr'), 16)
+            
+        else:
+            #if G_TOOLCHAIN_DEBUG:
+            #    print "COULDN'T MATCH SYMBOL INFO ON LINE:\n%s" % l
+            pass
+
+    # delete temp files
+    if not G_TOOLCHAIN_DEBUG:
+        os.unlink(asm_name)
+        os.unlink(obj0_name)
+
+    return [blob, syms]
 
 def disasmToString(addr, data, toolchainSettings):
 
@@ -84,18 +134,22 @@ def disasmToString(addr, data, toolchainSettings):
     # objdump doesn't like unaligned sections
     prepad = 0
     postpad = 0
-    while addr % 4:
-        #print "data was: ", data
-        data = '\x00' + data
-        #print "data is: ", data
-        addr -= 1
-        prepad += 1
 
-    while len(data) % 4:
-        #print "data was: ", data
-        data = data + '\x00'
-        #print "data is: ", data
-        postpad += 1
+    if 'DONT_ALIGN' in toolchainSettings:
+        pass
+    else:
+        while addr % 4:
+            #print "data was: ", data
+            data = '\x00' + data
+            #print "data is: ", data
+            addr -= 1
+            prepad += 1
+    
+        while len(data) % 4:
+            #print "data was: ", data
+            data = data + '\x00'
+            #print "data is: ", data
+            postpad += 1
    
     #print "prepad: ", prepad
     #print "postpad: ", postpad
@@ -104,11 +158,6 @@ def disasmToString(addr, data, toolchainSettings):
     (obj0_handle, obj0_name) = tempfile.mkstemp(suffix='.o')
     (obj1_handle, obj1_name) = tempfile.mkstemp(suffix='.o')
     (ld_handle, ld_name) = tempfile.mkstemp(suffix='.ld')
-
-    #print "file obj0: " + obj0_name
-    #print "file obj1: " + obj1_name
-    #print "file input: " + asm_name
-    #print "file linker: " + ld_name
 
     # create asm input file
     asm_obj = os.fdopen(asm_handle, 'w')
@@ -132,7 +181,7 @@ def disasmToString(addr, data, toolchainSettings):
     # assemble to object file
     cmd = '%s %s %s -o %s' % \
             (toolchainSettings['as'], toolchainSettings['as_flags'], asm_name, obj0_name)
-    output = utils.runGetOutput(cmd) 
+    output = utils.runGetOutput(cmd, G_TOOLCHAIN_DEBUG) 
 
     # create linker file
     ld_obj = os.fdopen(ld_handle, 'w')
@@ -145,23 +194,29 @@ def disasmToString(addr, data, toolchainSettings):
 
     # link object file to new object file with the relocation of .text
     cmd = '%s %s --script %s -o %s' % (toolchainSettings['ld'], obj0_name, ld_name, obj1_name)
-    output = utils.runGetOutput(cmd)
+    output = utils.runGetOutput(cmd, G_TOOLCHAIN_DEBUG)
 
     # replace all symbols '$d' with '$a' so that objdump won't distinguish between
     # code and data within .text (see "mapping symbols" in arm eabi pdf)
-    elf.replaceStrtabString(obj1_name, '$d', '$a')
-    #try:
-    #    elf.replaceStrtabString(obj1_name, '$d', '$a')
-    #except Exception as e:
-    #    print e
+    # note some elf's don't have a string table (eg: HC12)
+    try:
+        elf.replaceStrtabString(obj1_name, '$d', '$a')
+    except Exception as e:
+        pass
+        #print e
         #print "possibly strtab doesn't exist, skipping this step..."
  
     # disassemble output file
     cmd = '%s -d %s %s' % (toolchainSettings['objdump'], toolchainSettings['objdump_flags'], obj1_name) 
-    output = utils.runGetOutput(cmd)
+    output = utils.runGetOutput(cmd, G_TOOLCHAIN_DEBUG)
 
     # delete temp files
-    if 1:
+    if G_TOOLCHAIN_DEBUG:
+        print "file input: " + asm_name
+        print "file obj0: " + obj0_name
+        print "file obj1: " + obj1_name
+        print "file linker: " + ld_name
+    else:
         os.unlink(asm_name)
         os.unlink(obj0_name)
         os.unlink(obj1_name)
@@ -180,12 +235,32 @@ def disasmToString(addr, data, toolchainSettings):
     # return
     return "\n".join(lines)
 
+# eg: 
+# ndk_eabi
+# ./toolchain.py ARM assemble
 if __name__ == "__main__":
-    TEST_ARM = 0
-    TEST_THUMB = 0
-    TEST_POWERPC = 1
+    G_TOOLCHAIN_DEBUG = 1
 
-    cross_compile = os.environ['CCOMPILER']
+    arch = 'AMD64'
+    if sys.argv[1:]:
+        arch = sys.argv[1]
+    print "using ARCH: " + arch 
+
+    oper = ''
+    if sys.argv[2:]:
+        oper = sys.argv[2]
+
+    print "operation \"%s\" on architecture %s" % (oper, arch)
+
+    # detect specified cross compiler
+    # ARM example: 
+    cross_compile = ''
+    if 'CCOMPILER' in os.environ:
+        cross_compile = os.environ['CCOMPILER']
+    else:
+        print "no CCOMPILER in environment, defaulting to AMD64"
+        cross_compile = ''
+        arch = 'AMD64'
 
     settings = {'as': cross_compile + 'as', \
                 'as_flags':'', \
@@ -195,7 +270,39 @@ if __name__ == "__main__":
                 'objdump_flags':'' \
             }
 
-    if TEST_ARM:
+    ###########################################################################
+    # do an example disassembly
+    ###########################################################################
+    if arch == 'AMD64':
+        settings['DONT_ALIGN'] = 1
+        settings['objdump_flags'] = ' -M intel'
+        settings ['as_flags'] = ' -mmnemonic=intel -msyntax=intel'
+        # from UPX's inserted code:
+        #  40349d: 5b                   	pop    rbx
+        #  40349e: 6a 01                	push   0x1
+        #  4034a0: 68 0c 00 40 00       	push   0x40000c
+        #  4034a5: 50                   	push   rax
+        #  4034a6: 68 ac 6b 21 00       	push   0x216bac
+        #  4034ab: 51                   	push   rcx
+        #  4034ac: 41 57                	push   r15
+        #  4034ae: bf 00 00 80 00       	mov    edi,0x800000
+        #  4034b3: 6a 07                	push   0x7
+        #  ...
+        testInput = [ \
+            0x5B, 0x6A, 0x01, 0x68, 0x0C, 0x00, 0x40, 0x00, 0x50, 0x68, 0xAC, 0x6B, 0x21, 0x00, 0x51, 0x41,
+            0x57, 0xBF, 0x00, 0x00, 0x80, 0x00, 0x6A, 0x07, 0x5A, 0xBE, 0xAC, 0x6B, 0x21, 0x00, 0x6A, 0x32,
+            0x41, 0x5A, 0x45, 0x29, 0xC0, 0x6A, 0x09, 0x58, 0x0F, 0x05, 0x39, 0xC7, 0x0F, 0x85, 0xF5, 0xFE,
+            0xFF, 0xFF, 0xBE, 0x00, 0x00, 0x40, 0x00, 0x89, 0xFA, 0x29, 0xF2, 0x74, 0x15, 0x01, 0xD5, 0x01,
+            0x54, 0x24, 0x08, 0x01, 0x54, 0x24, 0x18, 0x89, 0xD9, 0x29, 0xF1, 0xC1, 0xE9, 0x03, 0xFC, 0xF3,
+            0x48, 0xA5, 0x97, 0x48, 0x89, 0xDE, 0x50, 0x92, 0xAD, 0x50, 0x48, 0x89, 0xE1, 0xAD, 0x97, 0xAD,
+            0x44, 0x0F, 0xB6, 0xC0, 0x48, 0x87, 0xFE, 0xFF, 0xD5, 0x59, 0xC3
+        ]
+
+        testInput = ''.join(map(lambda x: struct.pack('B', x), testInput))
+        print repr(testInput)
+        print disasmToString(0x40349D, testInput, settings)
+
+    elif arch == 'ARM': 
         # from http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.dui0040d/BCECABDF.html
         #0xf0000000:                 0xe3a08000 ....     :mov                     r8,#0
         #0xf0000004:                 0xe28f900c ....     :add                     r9,pc,#0xc
@@ -233,9 +340,17 @@ if __name__ == "__main__":
     
         print disasmToString(0xf0000000, testInput, settings)
 
-    if TEST_THUMB:
-        cross_compile = os.environ['CCOMPILER']
+    elif arch == 'HC12':
+        # eg:
+        # sudo apt-get install gcc-m68hc1x
+        # $ CCOMPILER=m68hc11- ~/code/alib/py/toolchain.py HC12
+        settings['DONT_ALIGN'] = 1
 
+        testInput = '\x3B\x1B\x9c\x6c\x80\xec\x88\x6c\x82\x20\x16'
+
+        print disasmToString(0xF873, testInput, settings)
+
+    elif arch == 'THUMB':
         # for thumb, add in switches
         settings['as_flags'] = ' -mcpu=cortex-m3 -mthumb'
         settings['objdump_flags'] = ' -M force-thumb'
@@ -281,7 +396,7 @@ if __name__ == "__main__":
 
         print disasmToString(0x8000, testInput, settings)
 
-    if TEST_POWERPC:
+    elif arch == 'POWERPC':
         # from: http://devpit.org/wiki/Debugging_PowerPC_ELF_Binaries
         # 1000154c:       94 21 ff e0     stwu    r1,-32(r1)
         # 10001550:       93 e1 00 18     stw     r31,24(r1)
@@ -297,40 +412,29 @@ if __name__ == "__main__":
         # 10001578:       7d 61 5b 78     mr      r1,r11
         # 1000157c:       4e 80 00 20     blr
 
-#        testInput = '' + \
-#94 21 ff e0
-#93 e1 00 18
-#7c 3f 0b 78
-#90 7f 00 08
-#81 3f 00 08
-#38 09 00 01
-#90 1f 00 08
-#80 1f 00 08
-#7c 03 03 78
-#81 61 00 00
-#83 eb ff f8
-#7d 61 5b 78
-#4e 80 00 20
-
         # TODO: get this to work
         #print disasmToString(0x1000154c, testInput, settings)
         pass
 
+    ###########################################################################
+    # do an example disassembly
+    ###########################################################################
+
     # now go into shell mode
-    if (len(sys.argv) > 1) and \
-        (sys.argv[1] == 'assemble' or sys.argv[1] == 'disassemble'):
+    if oper and oper in ('assemble', 'disassemble'):
 
         while(1):
-            line = sys.stdin.readline()
+            line = raw_input('%s> ' % oper)
     
             if not line:
                 break
    
-            if(sys.argv[1] == 'disassemble'):
-                bs = bytes.getBytes(line)
-                print "got bytes: ", bytes.getStrAsHex(bs)
+            if(oper == 'disassemble'):
+                bs = parsing.parseBytes(line)
+                print "got bytes: ", binascii.hexlify(bs)
                 print disasmToString(0, bs, settings)
             else:
-                bytes = assembleToString(line, settings)
-                print bytes.getStrAsHex(bytes, True)
+                (bytes_, syms) = assemble(line, settings)
+                print binascii.hexlify(bytes_)
+                #print syms
 

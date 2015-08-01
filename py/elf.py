@@ -3,7 +3,7 @@
 #
 #    This file is a part of alib. 
 #
-#    Copyright 2011-2013 Andrew Lamoureux
+#    Copyright 2011-2015 Andrew Lamoureux
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -23,6 +23,8 @@
 
 import os
 import sys
+import time
+import shutil
 from struct import pack, unpack
 import string
 
@@ -244,6 +246,20 @@ SHT_HIPROC = 0x7fffffff
 SHT_LOUSER = 0x80000000
 SHT_HIUSER = 0xffffffff
 
+# Legal values for ST_TYPE subfield of st_info (symbol type).
+STT_NOTYPE = 0
+STT_OBJECT = 1
+STT_FUNC = 2
+STT_SECTION = 3
+STT_FILE = 4
+STT_COMMON = 5
+STT_TLS = 6
+STT_NUM = 7
+STT_GNU_IFUNC = 10
+STT_HIOS = 12
+STT_LOPROC = 13
+STT_HIPROC = 15
+
 SHF_WRITE = 0x1
 SHF_ALLOC = 0x2
 SHF_EXECINSTR = 0x4
@@ -265,11 +281,25 @@ def strValueLookup(value, lookup):
     if value in lookup:
         return lookup[value]
 
-    return '<UNKNOWN>'
+    return '<unknown>'
+
+def symbolTypeToString(t):
+    lookup = { 
+        STT_NOTYPE:'STT_NOTYPE', STT_OBJECT:'STT_OBJECT', STT_FUNC:'STT_FUNC',
+        STT_SECTION:'STT_SECTION', STT_FILE:'STT_FILE', STT_COMMON:'STT_COMMON',
+        STT_TLS:'STT_TLS', STT_NUM:'STT_NUM', STT_GNU_IFUNC:'STT_GNU_IFUNC',
+        STT_HIOS:'STT_HIOS', STT_LOPROC:'STT_LOPROC', STT_HIPROC:'STT_HIPROC'
+    }
+
+    if t in lookup:
+        return lookup[t]
+
+    return '<unknown>'
+
 
 def programHeaderTypeToString(t):
     lookup = { \
-            PT_NULL:'PT_NULL', PT_LOAD:'PT_LOAD', PT_DYNAMIC:'PT_DYNAMIC', \
+            PT_NULL:'PT_NULL', PT_LOAD:'PT_LOAD', PT_DYNAMIC:'PT_DYNAMIC',
             PT_INTERP:'PT_INTERP', PT_NOTE:'PT_NOTE', PT_SHLIB:'PT_SHLIB', 
             PT_PHDR:'PT_PHDR', PT_TLS:'PT_TLS', PT_GNU_EH_FRAME:'PT_GNU_EH_FRAME',
             PT_GNU_STACK:'PT_GNU_STACK'
@@ -284,7 +314,7 @@ def programHeaderTypeToString(t):
     if (t >= PT_LOOS) and (t <= PT_HIOS):
         return 'OS'
 
-    return '<UNKNOWN>'
+    return '<unknown>'
 
 def sectionTypeToString(t):
     if t==SHT_NULL: return 'SHT_NULL'
@@ -359,7 +389,7 @@ def dynamicTypeToString(t):
     if t==DT_PREINIT_ARRAY: return 'DT_PREINIT_ARRAY'
     if t==DT_PREINIT_ARRAYSZ: return 'DT_PREINIT_ARRAYSZ'
     if t==DT_NUM: return 'DT_NUM'
-    return '<UNKNOWN>'
+    return '<unknown>'
  
 #------------------------------------------------------------------------------
 # CLASSES REPRESENTING ELF STRUCTS
@@ -513,18 +543,24 @@ class Elf64_Ehdr(Elf_Ehdr):
 class Elf_Shdr:
     def __init__(self, FP):
         self.FP = FP
+        self.offset = FP.tell()
 
         if type(FP).__name__ == 'file':
             self.from_FP(FP)
-        
-    def from_FP(self, FP):
-        raise NotImplementedError()
+       
+        self.strtab = None
 
     def __len__(self):
         raise NotImplementedError()
 
-    def load_strtab(self, strings):
-        self.name = strings[self.sh_name]
+    def loadStringTable(self, strtab):
+        self.strtab = strtab
+
+    def getName(self):
+        if self.strtab:
+            return self.strtab[self.sh_name]
+        else:
+            return '<unknown>'
 
     def getBytes(self):
         self.FP.seek(self.offset)
@@ -532,7 +568,7 @@ class Elf_Shdr:
 
     def __str_short__(self):
         return "[%08Xh,%08Xh) (%Xh) %s \"%s\"" % \
-            (self.offset, self.offset + len(self), len(self), self.__class__.__name__, self.name)
+            (self.offset, self.offset + len(self), len(self), self.__class__.__name__, self.getName())
 
     def __str__(self):
         buff = self.__str_short__() + ":\n"
@@ -546,7 +582,7 @@ class Elf_Shdr:
         extra = { \
             'sh_type' : sectionTypeToString(self.sh_type), \
             'sh_flags' : sectionFlagsToString(self.sh_type), \
-            'sh_name' : '"%s"' % self.name
+            'sh_name' : '"%s"' % self.getName()
         }
 
         for i in range(len(fieldNames)):
@@ -570,7 +606,6 @@ class Elf32_Shdr(Elf_Shdr):
         self.offset = FP.tell()
 
         # name set later when strings available
-        self.name = ''
         data = FP.read(len(self));
         # parse rest
         (self.sh_name, self.sh_type, self.sh_flags, self.sh_addr, self.sh_offset, 
@@ -585,7 +620,6 @@ class Elf64_Shdr(Elf_Shdr):
         self.offset = FP.tell()
 
         # name set later when strings available
-        self.name = ''
         data = FP.read(len(self));
         # parse rest
         (self.sh_name, self.sh_type, self.sh_flags, self.sh_addr, self.sh_offset, 
@@ -595,8 +629,11 @@ class Elf64_Shdr(Elf_Shdr):
     def __len__(self):
         return 64
 
-class Elf_Sym():
-    def __init__(self):
+class Elf_Sym:
+    def __init__(self, FP):
+        self.FP = FP
+        self.offset = FP.tell()
+        self.strtab = None
         pass
 
     def from_FP(self, FP):
@@ -608,83 +645,122 @@ class Elf_Sym():
     def to_FP(self, FP):
         raise NotImplementedError()
 
-    def load_strtab(self, strings):
-        self.name = strings[self.st_name]
+    def loadStringTable(self, strtab):
+        self.strtab = strtab
+
+    def getName(self):
+        if self.strtab:
+            return self.strtab[self.st_name]
+        else:
+            return '<unknown>'
+
+    # emulating ELF32_ST_TYPE(), returns STT_NOTYPE, STT_OBJECT, STT_FUNC, ...
+    def getType(self):
+        return self.st_info & 0xF 
+
+    # emulating ELF32_ST_BIND(), returns STB_LOCAL, STB_GLOBAL, STB_WEAK, ...
+    def getBind(self):
+        return self.st_info >> 4
+
+    def isHashable(self):
+        #print "self.info is 0x%X" % self.st_info
+        #print "self.getType() returned: %d" % self.getType()
+        #print "self.getName() returned: %s" % self.getName()
+
+        return (self.getType() == STT_FUNC and self.getName() != '<unknown>')
+
+    def __str__(self):
+        answer = ''
+        answer = '[%08X, %08Xh] (%Xh) \"%s\"\n' % \
+            (self.getName(), self.offset, self.offset + len(self), len(self))
+        return answer
 
 class Elf32_Sym(Elf_Sym):
-    def from_FP(self, FP):
-        self.offset = FP.tell()
-        
-        data = FP.read(len(self))
+    def __init__(self, FP):
+        Elf_Sym.__init__(self, FP)
 
-        (self.st_name, self.st_info, self.st_other, self.st_shndx, self.st_value, self.st_size) = \
-            unpack('IBBHII', data)
+        # note! the ORDER (in addition to the data size) of these members is different
+        # than my 64-bit counterpart!
+        (self.st_name, self.st_value, self.st_size, self.st_info, self.st_other, self.st_shndx) = \
+            unpack('IIIBBH', FP.read(16))
 
     def __len__(self):
         return 16
 
-    def to_FP(self, FP):
-        FP.write(pack('IBBHII', self.st_name, self.st_info, self.st_other, self.st_shndx, \
+    def write(self):
+        self.FP.seek(self.offset, os.SEEK_SET)
+
+        # note! the ORDER (in addition to the data size) of these members is different
+        # than my 32-bit counterpart!
+        self.FP.write(pack('IBBHII', self.st_name, self.st_info, self.st_other, self.st_shndx, \
             self.st_value, self.st_size))
 
+# the last two fields (st_value, st_size) are 64-bit instead of 32-bit
 class Elf64_Sym(Elf_Sym):
-    def from_FP(self, FP):
-        self.offset = FP.tell()
+    def __init__(self, FP):
+        Elf_Sym.__init__(self, FP)
         
-        data = FP.read(len(self))
-
         (self.st_name, self.st_info, self.st_other, self.st_shndx, self.st_value, self.st_size) = \
-            unpack('IBBHQQ', data)
+            unpack('IBBHQQ', FP.read(24))
 
     def __len__(self):
         return 24
 
-    def to_FP(self, FP):
-        FP.write(pack('IBBHQQ', self.st_name, self.st_info, self.st_other, self.st_shndx, \
+    def to_FP(self):
+        self.FP.seek(self.offset, os.SEEK_SET)
+
+        self.FP.write(pack('IBBHQQ', self.st_name, self.st_info, self.st_other, self.st_shndx, \
             self.st_value, self.st_size))
 
 class Elf_Dyn:
-    def __init__(self):
+    def __init__(self, FP):
+        self.FP = FP
+        self.offset = FP.tell()
         pass
 
     def from_FP(self, FP):
         raise NotImplementedError()
 
     def __str_short__(self):
-        return "[%08Xh,%08Xh) (%Xh) %s %s" % \
-            (self.offset, self.offset + len(self), len(self), \
-            self.__class__.__name__, dynamicTypeToString(self.d_tag))
+        return "%08Xh: %s %s" % \
+            (self.offset, self.__class__.__name__, 
+                dynamicTypeToString(self.d_tag))
 
     def __str__(self):
-        buff = self.__str_short__() + ":\n"
+        buff = self.__str_short__() + ": %Xh\n" % self.d_val
+        return buff
 
-        #if self.d_tag == NULL:
-        #    pass
-        #elif self.d_tag == DT_NEEDED:
-        names = ['sh_name', 'sh_type', 'sh_flags', 'sh_addr', 'sh_offset', 'sh_size', 'sh_link', \
-                    'sh_info', 'sh_addralign', 'sh_entsize' ];
-        vals = [self.sh_name, self.sh_type, self.sh_flags, self.sh_addr, self.sh_offset, 
-            self.sh_size, self.sh_link, self.sh_info, self.sh_addralign, self.sh_entsize]
+class Elf32_Dyn(Elf_Dyn):
+    def __init__(self, FP):
+        Elf_Dyn.__init__(self, FP)
 
-class Elf64_Dyn(Elf_Dyn):
-    def from_FP(self, FP):
         (self.d_tag, self.d_val) = unpack('II', FP.read(8))
         self.d_ptr = self.d_val
 
-class Elf32_Dyn(Elf_Dyn):
-    def from_FP(self, FP):
+    def __len__(self):
+        return 8
+
+class Elf64_Dyn(Elf_Dyn):
+    def __init__(self, FP):
+        Elf_Dyn.__init__(self, FP)
+
         (self.d_tag, self.d_val) = unpack('QQ', FP.read(16))
         self.d_ptr = self.d_val
 
+    def __len__(self):
+        return 16
+
 #------------------------------------------------------------------------------
 # CLASSES REPRESENTING ELF ELEMENTS THAT AREN'T STRUCTS
-# example: .dynsym is an array of Elf64_Dyn entries terminated by an entry
+# example: .dynsym is an array of ElfXX_Sym entries terminated by an entry
 #          tagged with DT_NULL
 #------------------------------------------------------------------------------
 
-class String_Table:
+class StringTable:
     def __init__(self, FP, size):
+        self.FP = FP
         self.offset = FP.tell()
+
         self.size = size
         data = FP.read(size)
         self.table = unpack(('%d'%size)+'s', data)[0]
@@ -695,10 +771,15 @@ class String_Table:
             end += 1
         return self.table[offset:end]
 
-    def replace_string(self, oldstr, newstr):
-        offset = 0
-        self.table.index(oldstr) # check existence, exception if not found
-        self.table = self.table.replace(oldstr, newstr)
+    def replace_string(self, oldstr, newstr, ignoreCase=False):
+        flags=0
+
+        if (ignoreCase == True):
+            flags = re.IGNORECASE
+
+        matches = set(re.findall(oldstr, self.table, flags))
+        for match in matches:
+            self.table = self.table.replace(match, newstr)
 
     def __len__(self):
         return self.size
@@ -715,21 +796,83 @@ class String_Table:
                     buff += ('%Xh' % i).rjust(12) + ' ' + self[i] + "\n"
         return buff
 
-    def to_FP(self, FP):
-        FP.write(pack(('%d'%self.size)+'s', self.table))
+    def write(self):
+        self.FP.seek(self.offset, os.SEEK_SET)
+        self.FP.write(pack(('%d'%self.size)+'s', self.table))
+
+# eg array of ElfXX_Sym for .symtab or .dynsym
+class SymTable:
+    def __init__(self, FP, n):
+        self.FP = FP
+        self.size = n
+        self.syms = []
+
+    def __len__(self):
+        # define length as the number of symbols
+        return len(self.syms)
+
+    def __getitem__(self, key):
+        return self.syms[key]
+
+    def __setitem__(self, key, value):
+        self.syms[key] = value
+
+    def loadStringTable(self, strtab):
+        for s in self.syms:
+            s.loadStringTable(strtab)
+
+    def write(self):
+        for sym in self.syms:
+            sym.write()
+
+    def __str__(self):
+        buff = 'name'.rjust(24) + 'hash'.rjust(10) + "\n"
+        for (i,s) in enumerate(self.syms):
+            buff += '%04d: ' % i
+            buff += s.getName().rjust(24) + ('%08X' % dl_new_hash(s.getName())).rjust(10) + "\n"
+        return buff
+
+class SymTable32(SymTable):
+    def __init__(self, FP, n):
+        SymTable.__init__(self, FP, n)
+
+        while n:
+            self.syms.append(Elf32_Sym(FP))
+            n -= len(self.syms[-1])
+
+class SymTable64:
+    def __init__(self, FP, n):
+        SymTable.__init__(self, FP, n)
+
+        while n:
+            self.syms.append(Elf64_Sym(FP))
+            n -= len(self.syms[-1])
+    
+
+# HIGHER LEVEL
+# array of ElfXX_Dyn, each with a tag, eg:
+#
+# Dynamic section at offset 0x11d458 contains 32 entries:
+#   Tag        Type                         Name/Value
+#  0x00000001 (NEEDED)                     Shared library: [libpthread.so.0]
+#  0x00000001 (NEEDED)                     Shared library: [libdl.so.2]
+#  0x00000001 (NEEDED)                     Shared library: [librt.so.1]
+#  0x00000001 (NEEDED)                     Shared library: [libm.so.6]
+#  0x00000001 (NEEDED)                     Shared library: [libstdc++.so.6]
+#  0x00000001 (NEEDED)                     Shared library: [libcrypto.so.1.0.0]
+#  0x00000001 (NEEDED)                     Shared library: [libgcc_s.so.1]
+#  0x00000001 (NEEDED)                     Shared library: [libc.so.6]
+#  0x00000001 (NEEDED)                     Shared library: [ld-linux.so.3]
+#  0x0000000c (INIT)                       0x1c7b4
+#  0x0000000d (FINI)                       0x102be4
+#  0x00000019 (INIT_ARRAY)                 0x120c14
+#  ...
+# 
 
 class Dynamic:
-    # this st
     def __init__(self, FP):
-        # read all Dyn entries
         self.dyns = []
-        while 1:    
-            dyn = Elf64_Dyn(FP)
-    
-            if dyn.d_tag == DT_NULL:
-                break
-
-            self.dyns.append(dyn)
+        pass
 
     def __len__(self):
         return len(self.dyns)
@@ -748,39 +891,181 @@ class Dynamic:
                 answer.append(e)
         return answer
 
-class Dynsym:
-    def __init__(self, FP, n):
-        self.syms = []
+    def __str__(self):
+        answer = ''
+        for dyn in self.dyns:
+            answer += str(dyn)
+        return answer
 
-        for i in range(n):
-            self.syms.append(Elf64_Sym(FP))
+class Dynamic32(Dynamic):
+    # this st
+    def __init__(self, FP):
+        # read all Dyn entries
+        self.dyns = []
+        self.offset = FP.tell()
 
-    def to_FP(self, FP):
-        for sym in self.syms:
-            sym.to_FP(FP)
-        
-    def __len__(self):
-        # define length as the number of symbols
-        return len(self.syms)
+        while 1:    
+            dyn = Elf32_Dyn(FP)
+    
+            if dyn.d_tag == DT_NULL:
+                break
 
-    def __getitem__(self, key):
-        return self.syms[key]
+            self.dyns.append(dyn)
 
-    def __setitem__(self, key, value):
-        self.syms[key] = value
+class Dynamic64(Dynamic):
+    # this st
+    def __init__(self, FP):
+        # read all Dyn entries
+        self.dyns = []
+        self.offset = FP.tell()
 
-    def load_strtab(self, strtab):
-        for s in self.syms:
-            s.load_strtab(strtab)
+        while 1:    
+            dyn = Elf64_Dyn(FP)
+    
+            if dyn.d_tag == DT_NULL:
+                break
+
+            self.dyns.append(dyn)
+
+class SVR4HashTable:
+    def __init__(self, FP, Dynsym):
+        self.FP = FP
+        self.offset = FP.tell()
+
+        self.dynsym = Dynsym
+
+        (self.nbucket, self.nchain) = \
+            unpack('II', FP.read(8))
+
+        self.buckets = []
+        for i in range(self.nbucket):
+            self.buckets.append(unpack('I', FP.read(4))[0])
+
+        self.chain = []
+        for i in range(self.nchain):
+            self.chain.append(unpack('I', FP.read(4))[0])
+
+        self.size = FP.tell() - self.offset
+
+    def hash(self, symname):
+        h = 0
+        g = 0
+        for c in list(symname):
+            h = (h<<4) + ord(c)
+            h &= 0xFFFFFFFF
+
+            g = h & 0xF0000000
+
+            if(g):
+                h ^= (g >> 24)
+
+            h &= (g ^ 0xFFFFFFFF)
+
+        return h
+
+    def verify(self):
+        for (i,sym) in enumerate(self.dynsym):
+            if not sym.isHashable():
+                continue
+
+            hashVal = self.hash(sym.getName())
+            bucketIdx = hashVal % self.nbucket
+            symIdx = self.buckets[bucketIdx]
+
+            print "symidx:%d \"%s...\" hashed to %08X (bucket: %d) -> symidx:%d" % \
+                (i, sym.getName()[0:32], hashVal, bucketIdx, symIdx)
+
+            while self.chain[symIdx] != 0:
+                print "   check symbol index %d" % self.chain[symIdx]
+                symIdx = self.chain[symIdx]
+
+            # ok, now let's see if that symbol really is there....
+
+    def recompute(self):
+        self.buckets = [0] * len(self.buckets)
+        self.chain = [0] * len(self.chain)
+
+        bi2sis = {}
+        for i in range(self.nbucket):
+            bi2sis[i] = []
+
+        for (symIdx, sym) in enumerate(self.dynsym):
+            if not sym.isHashable():
+                continue
+
+            bucketIdx = self.hash(sym.getName()) % self.nbucket
+
+            # remember collisions
+            bi2sis[bucketIdx].append(symIdx)
+
+            # set initial bucket values
+            if self.buckets[bucketIdx] == 0:
+                self.buckets[bucketIdx] = symIdx
+                #print "  placed \"%s\" at bucket %d" % (sym.getName(), bucketIdx)
+
+        for (symIdx, sym) in enumerate(self.dynsym):
+            if not sym.getName():
+                continue
+
+            bucketIdx = self.hash(sym.getName()) % self.nbucket
+
+            symIndices = bi2sis[bucketIdx]
+
+            # if symbol indices {5, 12, 60} have the same hash, then:
+            # chain[5] = 12
+            # chain[12] = 60
+            # chain[60] = 0
+            if len(symIndices) > 1:
+                for pair in zip(symIndices, symIndices[1:] + [0]):
+                    #print '%d->%d ' % (pair[0], pair[1]),
+                    self.chain[pair[0]] = pair[1]
+
+                #print ''
+
+    def write(self):
+        self.FP.seek(self.offset, os.SEEK_SET)
+
+        self.FP.write(pack('II', self.nbucket, self.nchain))
+
+        for value in self.buckets:
+            self.FP.write(pack('I', value))
+
+        for value in self.chain:
+            self.FP.write(pack('I', value))
 
     def __str__(self):
-        buff = 'name'.rjust(24) + 'hash'.rjust(10) + "\n"
-        for s in self.syms:
-            buff += s.name.rjust(24) + ('%08X' % dl_new_hash(s.name)).rjust(10) + "\n"
-        return buff
+        answer = ''
+        answer += '[%08Xh, %08Xh) (%Xh)\n' % \
+            (self.offset, self.offset + self.size, self.size)
 
-class GnuHash:
+        for bucketNum in range(self.nbucket):
+            symIdx = self.buckets[bucketNum]
+
+            answer += 'bucket[%04d] = %d: \"%s...\"\n' % \
+                (bucketNum, symIdx, self.dynsym.syms[symIdx].getName()[0:16])
+
+            while 1:
+                symIdx = self.chain[symIdx]
+
+                if not symIdx:
+                    break
+
+                answer += '    -(chain)-> %d: \"%s...\"\n' % \
+                    (symIdx, self.dynsym.syms[symIdx].getName()[0:16])
+
+        #for i in range(self.nbucket):
+        #    answer += 'bucket[%d] = %d\n' % (i, self.buckets[i])
+        
+        #for i in range(self.nchain):
+        #    answer += 'chain[%d] = %d\n' % (i, self.chain[i])
+
+        return answer
+
+class GnuHashTable:
     def __init__(self, FP, Dynsym):
+        self.FP = FP
+        self.offset = FP.tell()
+
         self.dynsym = Dynsym
 
         (self.nbuckets, self.symndx, self.nbloomwords, self.shift2) = \
@@ -788,7 +1073,11 @@ class GnuHash:
         
         self.bloomwords = []
         for i in range(self.nbloomwords):
+            # TODO: resolve this
+            # 64-bit
             self.bloomwords.append(unpack('Q', FP.read(8))[0])
+            # 32-bit
+            #self.bloomwords.append(unpack('I', FP.read(4))[0])
         
         self.bucket_to_index = []
         for i in range(self.nbuckets):
@@ -797,6 +1086,8 @@ class GnuHash:
         self.hash_values = []
         for i in range(len(self.dynsym) - self.symndx):
             self.hash_values.append(unpack('I', FP.read(4))[0])
+
+        self.size = FP.tell() - self.offset
 
     def to_FP(self, FP):
         FP.write(pack('IIII', self.nbuckets, self.symndx, self.nbloomwords, self.shift2))
@@ -819,19 +1110,23 @@ class GnuHash:
         
         # sanity check current order of symbols
         syms_unsorted = dynsym[self.symndx:]
-        syms_sorted = sorted(syms_unsorted, key = lambda x: dl_new_hash(x.name) % self.nbuckets)
+        syms_sorted = sorted(syms_unsorted, key = lambda x: dl_new_hash(x.getName()) % self.nbuckets)
+
+        for s in syms_sorted:
+            print "%s: has hash: %08X" % (x.getName(), dl_new_hash(x.getName()))
+        time.sleep(5)
 
         if syms_unsorted != syms_sorted:
             raise Exception("corresponding symbol table must be sorted non-increasing by bucket position");
 
         # re-hash values
         for i,v in enumerate(self.hash_values):
-            self.hash_values[i] = dl_new_hash(self.dynsym[i + self.symndx].name) & 0xFFFFFFFE
+            self.hash_values[i] = dl_new_hash(self.dynsym[i + self.symndx].getName()) & 0xFFFFFFFE
 
         # write stop bits
         for i in range(len(self.hash_values)-1):
-            if dl_new_hash(self.dynsym[self.symndx + i].name) % self.nbuckets != \
-               dl_new_hash(self.dynsym[self.symndx + i + 1].name) % self.nbuckets:
+            if dl_new_hash(self.dynsym[self.symndx + i].getName()) % self.nbuckets != \
+               dl_new_hash(self.dynsym[self.symndx + i + 1].getName()) % self.nbuckets:
                 self.hash_values[i] |= 1
         self.hash_values[-1] |= 1
 
@@ -839,7 +1134,7 @@ class GnuHash:
         for lookfor in range(self.nbuckets):
             self.bucket_to_index[lookfor] = 0
             for i in range(self.symndx, len(self.dynsym)):
-                if dl_new_hash(self.dynsym[i].name) % self.nbuckets == lookfor:
+                if dl_new_hash(self.dynsym[i].getName()) % self.nbuckets == lookfor:
                     self.bucket_to_index[lookfor] = i
                     break
 
@@ -848,7 +1143,7 @@ class GnuHash:
             self.bloomwords[i] = 0
 
         for i in range(len(self.hash_values)):
-            h1 = dl_new_hash(self.dynsym[self.symndx + i].name)
+            h1 = dl_new_hash(self.dynsym[self.symndx + i].getName())
             h2 = h1 >> self.shift2
 
             # rather than the hash functions having full reign over the bloom filter's bits
@@ -863,10 +1158,11 @@ class GnuHash:
 
     def __str__(self):
         buff = ''
-        buff += "   nbuckets: 0x%08X\n" % self.nbuckets;
-        buff += "     symndx: 0x%08X\n" % self.symndx;
-        buff += "nbloomwords: 0x%08X\n" % self.nbloomwords;
-        buff += "     shift2: 0x%08X\n" % self.shift2;
+        buff += "[%08X, %08X) (%d)\n" % (self.offset, self.offset + self.size, self.size)
+        buff += "   nbuckets: %Xh (%d)\n" % (self.nbuckets, self.nbuckets);
+        buff += "     symndx: %Xh (%d)\n" % (self.symndx, self.symndx);
+        buff += "nbloomwords: %Xh (%d)\n" % (self.nbloomwords, self.nbloomwords);
+        buff += "     shift2: %Xh (%d)\n" % (self.shift2, self.shift2);
         for i,w in enumerate(self.bloomwords):
             buff += ('bloomword[0x%X]:' % i) + '%X'%w + "\n"
         for i,b in enumerate(self.bucket_to_index):
@@ -877,9 +1173,9 @@ class GnuHash:
                 'bucket'.rjust(7) + "\n"
         for i,v in enumerate(self.hash_values):
             buff += ('0x%X' % i).rjust(7) + ('0x%08X' % v).rjust(11) + \
-                    self.dynsym[self.symndx + i].name.rjust(20) + \
+                    self.dynsym[self.symndx + i].getName().rjust(20) + \
                     ('0x%08X' % v).rjust(11) + \
-                    ('0x%X' % (dl_new_hash(self.dynsym[self.symndx + i].name) % self.nbuckets)).rjust(7)
+                    ('0x%X' % (dl_new_hash(self.dynsym[self.symndx + i].getName()) % self.nbuckets)).rjust(7)
             buff += "\n"
         return buff
 
@@ -888,7 +1184,7 @@ class GnuHash:
 #------------------------------------------------------------------------------
 class ElfFile:
     def __init__(self, path):
-        self.FP = open(path, 'r')
+        self.FP = open(path, 'rb+')
 
         # validate, determine the mode (32/64)
         temp = self.FP.read(EI_NIDENT)
@@ -904,13 +1200,13 @@ class ElfFile:
             if self.class_ != ELFCLASS64:
                 raise Exception("unknown ELF class: " + repr(self.class_))
 
-        # read header
-        if self.class_ == ELFCLASS32:
-            self.Ehdr = Elf32_Ehdr(self.FP)
-        else:
-            self.Ehdr = Elf64_Ehdr(self.FP)
+        # 1/3 read header
+        #
+        if self.class_ == ELFCLASS32: self.Ehdr = Elf32_Ehdr(self.FP)
+        else: self.Ehdr = Elf64_Ehdr(self.FP)
 
-        # read program headers
+        # 2/3 read program headers
+        #
         self.Phdrs = []
         self.FP.seek(self.Ehdr.e_phoff)
         for i in range(self.Ehdr.e_phnum):
@@ -919,7 +1215,8 @@ class ElfFile:
             else:
                 self.Phdrs.append(Elf64_Phdr(self.FP))
 
-        # read section headers
+        # 3/3 read section headers
+        #
         self.Shdrs = []
         self.FP.seek(self.Ehdr.e_shoff)
         for i in range(self.Ehdr.e_shnum):
@@ -927,63 +1224,76 @@ class ElfFile:
                 self.Shdrs.append(Elf32_Shdr(self.FP))
             if self.class_ == ELFCLASS64:
                 self.Shdrs.append(Elf64_Shdr(self.FP))
-        
-        # handle special sections
 
         # get section string table (probably called ".shstrtab" and type SHT_STRTAB)
         self.stringTables = {}
         shstr_section = self.Shdrs[self.Ehdr.e_shstrndx]
         self.FP.seek(shstr_section.sh_offset)
-        self.stringTables['sections'] = String_Table(self.FP, shstr_section.sh_size)
+        self.stringTables['sections'] = StringTable(self.FP, shstr_section.sh_size)
 
         # have sections look up their names in the string table
         for s in self.Shdrs:
-            s.load_strtab(self.stringTables['sections'])
+            s.loadStringTable(self.stringTables['sections'])
 
-        # get other string table (that symbols, etc. reference)
-        try:
-            sh = self.getSectionHeader('.strtab')
+        # get other string table(s) (that symbols, etc. reference)
+        sh = self.getSectionHeader('.strtab')
+        if sh:
             self.FP.seek(sh.sh_offset)
-            self.stringTables['normal'] = String_Table(self.FP, sh.sh_size)
-        except:
-            pass
+            self.stringTables['strtab'] = StringTable(self.FP, sh.sh_size)
+            
+        sh = self.getSectionHeader('.dynstr')
+        if sh:
+            self.FP.seek(sh.sh_offset)
+            self.stringTables['dynstr'] = StringTable(self.FP, sh.sh_size)
 
         # dynamic section
-        self.dynamic = [] 
-        try:
-            sh = self.getSectionHeader('.dynamic')
-            remaining = sh.sh_size
+        self.dynamic = None
+        sh = self.getSectionHeader('.dynamic')
+
+        if sh:
             self.FP.seek(sh.sh_offset)
+            if(self.class_ == ELFCLASS32):
+                self.dynamic = Dynamic32(self.FP)
+            else:
+                self.dynamic = Dynamic64(self.FP) 
 
-            while remaining > 0:
-                if(self.class_ == ELFCLASS32):
-                    dyn = Elf32_Dyn(self.FP)
-                else:
-                    dyn = Elf32_Dyn(self.FP)
-
-                self.dynamic.append(dyn)
-                remaining -= len(dyn)
-        except:
-            pass
-
-        # symbol table section
-        self.symtab = []
-        try:
-            sh = self.getSectionHeader('.symtab')
-            bytesLeft = sh.sh_size
+        # symbol table: static
+        self.symtab = None
+        sh = self.getSectionHeader('.symtab')
+        if sh:
             self.FP.seek(sh.sh_offset)
+            if(self.class_ == ELFCLASS32):
+                self.symtab = SymTable32(self.FP, sh.sh_size)
+            else:
+                self.symtab = SymTable64(self.FP, sh.sh_size)
 
-            while bytesLeft > 0:
-                sym = None
-                if(self.class_ == ELFCLASS32):
-                    sym = Elf32_Sym(self.FP)
-                else:
-                    sym = Elf64_Sym(self.FP)
+        # symbol table: dynamic
+        self.dynsym = None
+        sh = self.getSectionHeader('.dynsym')
+        if sh:
+            self.FP.seek(sh.sh_offset)
+            if(self.class_ == ELFCLASS32):
+                self.dynsym = SymTable32(self.FP, sh.sh_size)
+            else:
+                self.dynsym = SymTable64(self.FP, sh.sh_size)
 
-                self.symtab.append(sym)
-                bytesLeft -= len(sym)
-        except:
-            pass
+            if 'dynstr' in self.stringTables:
+                self.dynsym.loadStringTable(self.stringTables['dynstr'])
+
+        # hash section (could be old style, or new gnu style)
+        self.hashtable = None
+
+        sh = self.getSectionHeader('.hash')
+        if sh:
+            self.FP.seek(sh.sh_offset)
+            self.hashtable = SVR4HashTable(self.FP, self.dynsym)
+
+        sh = self.getSectionHeader('.GnuHashTable')
+        if sh:
+            self.FP.seek(sh.sh_offset)
+            # TODO: make 32/64 GnuHashTable as bloom word size is dependent
+            # on underlying arch
+            self.hashtable = GnuHashTable(self.FP, self.dynsym)
 
     # access dynamic entry
     #
@@ -1007,15 +1317,18 @@ class ElfFile:
     # access section stuff
     #
     def getSectionHeader(self, x):
-        if type(x) == type(1):
-            return self.Shdrs[x]
+        answer = None
 
-        if type(x) == type('a'):
+        if type(x) == type(1):
+            answer = self.Shdrs[x]
+
+        elif type(x) == type('a'):
             for s in self.Shdrs:
-                if s.name == x:
-                    return s
-        
-        raise Exception("couldn't find section header " + str(x))
+                if s.getName() == x:
+                    answer = s
+                    break
+       
+        return answer
 
     def getSection(self, x):
         if type(x) == type(1):
@@ -1024,7 +1337,7 @@ class ElfFile:
 
         if type(x) == type('a'):
             for s in self.Shdrs:
-                if s.name == x:
+                if s.getName() == x:
                     self.FP.seek(s.sh_offset)
                     return self.FP.read(s.sh_size)
 
@@ -1032,6 +1345,65 @@ class ElfFile:
 
     def __del__(self):
         self.FP.close()
+
+    def __str__(self):
+        answer = ''
+
+        answer += "ELF Header\n"
+        answer += "==========\n"
+        answer += str(self.Ehdr)
+
+        answer += '\n'
+        answer += "Program Headers\n"
+        answer += "===============\n"
+        for phdr in self.Phdrs:
+            answer += str(phdr)
+            answer += '\n'
+
+        answer += '\n'
+        answer += "Section Headers\n"
+        answer += "===============\n"
+        for shdr in self.Shdrs:
+            answer += str(shdr)
+            answer += '\n'
+
+        answer += '\n'
+        answer += "Section Bodies\n"
+        answer += "==============\n"
+        for s in self.Shdrs:
+            answer += "[%08Xh, %08Xh) section \"%s\" contents\n" % \
+                (s.sh_offset, s.sh_offset + s.sh_size, s.getName())
+
+        answer += '\n'
+        answer += "Section String Table\n"
+        answer += "====================\n"
+        answer += str(self.stringTables['sections'])
+
+        if self.symtab:
+            answer += '\n'
+            answer += 'Symbol Table\n'
+            answer += '============\n'
+            answer += str(self.symtab)
+
+        if self.dynsym:
+            answer += '\n'
+            answer += 'Dynamic Symbol Table\n'
+            answer += '====================\n'
+            answer += str(self.dynsym)
+
+        if self.dynamic:
+            answer += '\n'
+            answer += "Dynamic Section\n"
+            answer += "===============\n"
+            answer += str(self.dynamic)
+
+        if self.hashtable:
+            answer += '\n'
+            answer += "Dynamic Hash Table\n"
+            answer += "==================\n"
+            answer += str(self.hashtable)
+
+        return answer
 
 #------------------------------------------------------------------------------
 # GET-FROM-FILE CONVENIENCE FUNCTIONS
@@ -1124,34 +1496,95 @@ def dl_new_hash(s):
 #------------------------------------------------------------------------------
 if __name__ == "__main__":
 
+    if len(sys.argv) == 1:
+        print "provide argument"
+        sys.exit(-1)
+
     if sys.argv[1] == 'info':
         ef = ElfFile(sys.argv[2])
+        print ef
 
-        elems = []
-        # start by adding an "end" element
-        elems.append(ElfElem(0, 0, "EOF"))
-        # typical elf elements
-        elems.append(ef.Ehdr)
-        elems += ef.Phdrs
-        elems += ef.Shdrs
-        elems.append(ef.stringTables['sections'])
-        elems.append(ef.stringTables['normal'])
-        # add "elems" for section contents
-        for s in ef.Shdrs:
-            elems.append(ElfElem(s.sh_offset, s.sh_size, "section \"%s\" contents" % s.name))
+    if sys.argv[1] == 'verifyhash':
+        ef = ElfFile(sys.argv[2])
+        ef.hashtable.verify()
+        print ef.hashtable
 
-        # sort all elements by 
-        # sort key is debatable ... sections like .bss will likely have ending address
-        # way beyond everything else
-
-        for e in sorted(elems, key = lambda x: x.offset):
-            #print e.__str_short__()
-            print e
-
-    if sys.argv[1] == 'imports':
-        pass
-
+    elif sys.argv[1] == 'rehash':
+        print "%s -> %s" % (sys.argv[2], sys.argv[3])
+        shutil.copy(sys.argv[2], sys.argv[3])
+        ef = ElfFile(sys.argv[3])
+        ef.hashtable.recompute()
+        ef.hashtable.write()
+        print ef.hashtable
         
+    elif sys.argv[1] == 'scrub':
+        print "%s -> %s" % (sys.argv[2], sys.argv[3])
+        shutil.copy(sys.argv[2], sys.argv[3])
+        ef = ElfFile(sys.argv[3])
+
+        # replace the string in the string tables
+        ef.stringTables['dynstr'].table = \
+            ef.stringTables['dynstr'].table.replace('before', 'afterr')
+        ef.stringTables['dynstr'].write()
+
+        # recompute the hash table
+        ef.hashtable.recompute()
+        ef.hashtable.write()
+        print ef.hashtable
+
+    # eg: ./elf.py zerosect before.so after.so .debug_line
+    # eg: ./elf.py zerosect before.so after.so .debug_line
+    elif sys.argv[1] == 'zerosect':
+        (fileA, fileB, secName) = sys.argv[2:]
+        print "%s -> %s" % (fileA, fileB)
+        #shutil.copy(fileA, fileB)
+
+        (offs, size) = (0, 0)
+
+        ef = ElfFile(fileA)
+        hdr = ef.getSectionHeader(secName)
+        if not hdr:
+            raise Exception("ERROR: couldn't find section \"%s\"\n" % secName)
+        offs = hdr.sh_offset
+        size = hdr.sh_size
+        ef = None
+
+        fobj = open(fileA, 'rb+')
+        fobj.seek(offs, os.SEEK_SET)
+        fobj.write('\x00'*size)
+        fobj.close()
+
+    elif sys.argv[1] == 'wherestring':
+        (fname, string) = sys.argv[2:]
+
+        # first, find the offset:
+        fobj = open(fname, 'rb')
+        stuff = fobj.read()
+        fobj.close()
+
+        # collect all file offsets where string appears
+        offsets = []
+        curr = -1
+        while 1:
+            curr = stuff.find(string, curr+1)
+            if curr == -1:
+                break
+
+            offsets.append(curr)
+
+        # get section headers
+        ef = ElfFile(fname)
+
+        for o in offsets:
+            # in which section?
+            scnName = '<unknown>'
+            for hdr in ef.Shdrs:
+                if o >= hdr.sh_offset and o < (hdr.sh_offset + hdr.sh_size):
+                    scnName = hdr.getName()
+                    break
+
+            print "found at offset %08X (%d) in section \"%s\"" % (o, o, scnName)
+
 
 
 

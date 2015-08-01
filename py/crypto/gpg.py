@@ -21,6 +21,21 @@
 #------------------------------------------------------------------------------
 # trying to use RFC4880 "OpenPGP Message Format" to read
 # "ASCII Armor" (Base64 encoding) OpenPGP message data (packet type 3)
+# eg: 
+# $ gpg2 -z 0 -a --output test.bin --symmetric test.txt
+# where "-z 0" turns off compression, "-a" uses base64 encoding
+# $ 
+# $ gpg2 --list-packets ./test.bin
+# :symkey enc packet: version 4, cipher 3, s2k 3, hash 2
+#	salt 56c92f101a5258d7, count 65536 (96)
+# gpg: CAST5 encrypted data
+# :encrypted data packet:
+# length: 44
+# gpg: encrypted with 1 passphrase
+# :literal data packet:
+# 	mode b (62), created 1395934213, name="test.txt",
+# 	raw data: 18 bytes
+# gpg: WARNING: message was not integrity protected
 #------------------------------------------------------------------------------
 # 
 

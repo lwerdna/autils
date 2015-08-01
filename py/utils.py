@@ -25,11 +25,11 @@ import random
 import subprocess
 
 def runGetOutput(cmdAndArgs, verbose=False):
-    pipe = subprocess.Popen(cmdAndArgs, stdout=subprocess.PIPE, shell=True);
-    text = pipe.communicate()[0]
-
     if verbose:
         print cmdAndArgs
+
+    pipe = subprocess.Popen(cmdAndArgs, stdout=subprocess.PIPE, shell=True);
+    text = pipe.communicate()[0]
 
     return text
 

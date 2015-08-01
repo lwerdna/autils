@@ -25,10 +25,11 @@ FOREGROUND_BLACK = '\033[30m'
 FOREGROUND_RED = '\033[31m'
 FOREGROUND_GREEN = '\033[32m'
 FOREGROUND_YELLOW = '\033[33m'
-FOREGROUND_BLUE_DARK = '\033[34m'
-FOREGROUND_ORANGE = '\033[35m'
-FOREGROUND_BLUE_LIGHT = '\033[36m'
+FOREGROUND_BLUE = '\033[34m'
+FOREGROUND_MAGENTA = '\033[35m'
+FOREGROUND_CYAN = '\033[36m'
 FOREGROUND_WHITE = '\033[37m'
+FOREGROUND_GREY = '\033[39m'
 FOREGROUND_ORIG = '\033[0m'
 
 original_color_saved = 0
@@ -52,17 +53,54 @@ def ColorReset():
     color_stack = [FOREGROUND_ORIG]
     print color_stack[-1]
 
-def ColorDebug():
-    ColorPush(FOREGROUND_ORANGE)
-def ColorWarn():
+def ColorMagenta():
+    ColorPush(FOREGROUND_MAGENTA)
+def ColorYellow():
     ColorPush(FOREGROUND_YELLOW)
-def ColorError():
+def ColorRed():
     ColorPush(FOREGROUND_RED)
-def ColorInfo():
+def ColorGrey():
     ColorPush(FOREGROUND_GREY)
-def ColorData():
-    ColorPush(FOREGROUND_BLUE_LIGHT)
+def ColorBlue():
+    ColorPush(FOREGROUND_BLUE)
 def ColorNormal():
     ColorPush(FOREGROUND_ORIG)
+
+# client probably wants something like this:
+# 
+# import termcolors
+# 
+# def ColorDebug():
+#     termcolors.ColorOrange()
+# def ColorWarn():
+#     termcolors.ColorYellow()
+# def ColorError():
+#     termcolors.ColorRed()
+# def ColorInfo():
+#     termcolors.ColorGrey()
+# def ColorData():
+#     termcolors.ColorBlue()
+# def ColorNormal():
+#     termcolors.ColorNormal()
+# 
+# def printInfo(msg):
+#     ColorInfo()
+#     print msg
+#     termcolors.ColorPop()
+# 
+# def printError(msg):
+#     ColorError()
+#     print msg
+#     termcolors.ColorPop()
+# 
+# def printWarn(msg):
+#     ColorWarn()
+#     print msg
+#     termcolors.ColorPop()
+# 
+# def printDebug(msg):
+#     ColorDebug()
+#     print msg
+#     termcolors.ColorPop()
 
 

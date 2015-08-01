@@ -20,74 +20,12 @@
 #
 #------------------------------------------------------------------------------
 
-# routines for parsing/processing bits/bytes
-
 import re
 from struct import pack, unpack
 import string
 
 regex_hex_int = r'^(?:0x)?[a-fA-F0-9]{1,16}$'
 
-# grabs first parseable hexadecimal integer from a line
-#
-def getFirstLineHexInt(text):
-    lines = text.split('\n')
-
-    print "lines: ", lines
-
-    for line in lines:
-        if re.match('^0x[a-fA-F0-9]{1,16}$', line):
-            return int(line[2:], 16)
-        if re.match('^[a-fA-F0-9]{1,16}$', line):
-            return int(line, 16)
-
-    return 0
-
-# parse all the bytes from a sequence of lines
-def getBytes(text):
-    bytes = ''
-
-    lines = text.split('\n')
-
-    for i,l in enumerate(lines):
-        #print "line %d: %s" % (i,l)
-        bytes += parseBytesList(l)
-
-    #print "returning bytes: ", bytes
-    return bytes
-
-# parse all the bytes from a hex dump
-# expects format <address>: AA BB CC<two spaces><ascii>
-def getBytesFromHexDump(text):
-    bytes = ''
-
-    lines = text.split('\n')
-
-    for i,l in enumerate(lines):
-        #print "line %d: %s" % (i,l)
-
-        # notice the 2-spacer here! separating the hex from the ascii
-        m = re.match(r'^.*?: (.*)  ', l)
-        if m:
-            bytes += parseBytesList(m.group(1))
-
-    #print "returning bytes: ", bytes
-    return bytes
-
-
-def parseBytesList(text):
-    bytes = ''
-    tokens = re.split(r'\s+', text)
-    #print "tokens: ", tokens
-    for t in tokens:
-        if re.match('^[0-9A-Fa-f][0-9A-Fa-f]$', t):
-            bytes += pack('B', int(t,16))
-            #bytes.append(int(t, 16))
-            pass
-        else:
-            #print "didn't match: %s" % t
-            pass
-    return bytes
 
 # this is useful for parsing output from objdump, which can come
 # as a list of bytes, list of words, etc.
@@ -103,41 +41,9 @@ def parseBytesList(text):
 # 192c: f8d8 300c 	ldr.w	r3, [r8, #12]
 #
 
-def parseDwordsWordsBytes(text, endian='little'):
-    bytes = ''
-
-    iFmt = '<I'
-    hFmt = '<H'
-    bFmt = '<B'
-    if endian == 'big':
-        iFmt = '>I'
-        hFmt = '>H'
-        bFmt = '>B'
-
-    while text:
-        # eat whitespace
-        if re.match(r'^\s', text):
-            text = text[1:]
-        # eat dwords
-        elif re.match(r'^[0-9A-Fa-f]{8}', text):
-            #print "packing dword"
-            bytes += pack(iFmt, int(text[0:8], 16))
-            text = text[8:]
-        # eat words
-        elif re.match(r'^[0-9A-Fa-f]{4}', text):
-            #print "packing word"
-            bytes += pack(hFmt, int(text[0:4], 16))
-            text = text[4:]
-        # eat bytes
-        elif re.match(r'^[0-9A-Fa-f]{2}', text):
-            #print "packing byte"
-            bytes += pack(bFmt, int(text[0:2], 16))
-            text = text[2:]
-
-    #print "returning bytes: ", repr(bytes)
-    return bytes
-
-# prints 
+#------------------------------------------------------------------------------
+# binary data to various string representations 
+#------------------------------------------------------------------------------
 def getHexDump(data, addr=0, grouping=1, endian='little'):
     result = ''
 
@@ -252,7 +158,7 @@ def getCString(data):
             count = 0
 
     if group16:
-        result += '"%s"\n' % group16
+        result += '"%s"' % group16
 
     return result
 
@@ -262,33 +168,30 @@ def getPythonString(data):
     return temp
 
 def getStrAsHex(s, spaced=False):
-    output = ''
-    while s:
-        output += "%02X" % unpack('B', s[0])[0]
-        s = s[1:]
+    raise Exception("use binascii.hexlify() instead")
 
-    if spaced:
-        temp = ''
-        while output:
-            if temp:
-                temp += ' '
-            temp += output[0:2]
-            output = output[2:]
-        output = temp
-
-    return output
+#------------------------------------------------------------------------------
+# bit access
+#------------------------------------------------------------------------------
 
 def getBits(val, hi, lo):
     mask = (2**(hi+1) - 1) - (2**lo-1)
     return (val & mask) >> lo
 
+#------------------------------------------------------------------------------
+# endian conversions 
+#------------------------------------------------------------------------------
+
 def bswap32(val):
-    return unpack('>I', pack('<I', val))
+    return unpack('>I', pack('<I', val))[0]
 
 def bswap16(val):
-    return unpack('>H', pack('<H', val))
+    return unpack('>H', pack('<H', val))[0]
 
-# main
+#------------------------------------------------------------------------------
+# tests 
+#------------------------------------------------------------------------------
+
 if __name__ == '__main__':
     # test getFirstHexInt()
     text = "" + \
@@ -344,12 +247,12 @@ if __name__ == '__main__':
         "\x67\x65\x72\x20\x66\x72\x6f\x6d\x20\x61\x20\x6c\x69\x6e\x65\x0a" + \
         "\x23\x0a\x64\x65\x66\x20\x67\x65\x74\x46\x69\x72\x73\x74\x4c\x69"
 
-    print getHexDump(0, bytes, grouping=1, endian='big') 
-    print getHexDump(0, bytes, grouping=2, endian='big') 
-    print getHexDump(0, bytes, grouping=4, endian='big') 
-    print getHexDump(0, bytes, grouping=8, endian='big') 
-    print getHexDump(0, bytes, grouping=1, endian='little') 
-    print getHexDump(0, bytes, grouping=2, endian='little') 
-    print getHexDump(0, bytes, grouping=4, endian='little') 
-    print getHexDump(0, bytes, grouping=8, endian='little') 
+    print getHexDump(bytes, 0, grouping=1, endian='big') 
+    print getHexDump(bytes, 0, grouping=2, endian='big') 
+    print getHexDump(bytes, 0, grouping=4, endian='big') 
+    print getHexDump(bytes, 0, grouping=8, endian='big') 
+    print getHexDump(bytes, 0, grouping=1, endian='little') 
+    print getHexDump(bytes, 0, grouping=2, endian='little') 
+    print getHexDump(bytes, 0, grouping=4, endian='little') 
+    print getHexDump(bytes, 0, grouping=8, endian='little') 
 
