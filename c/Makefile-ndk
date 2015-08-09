@@ -1,0 +1,29 @@
+# compile using Android's native development kit (NDK)
+#
+# tested values for required environment variables (CCOMPILER, NDK_SYSROOT) are:
+# CCOMPILER=$HOME/android-ndk-r10e/toolchains/arm-linux-androideabi-4.9/prebuilt/linux-x86_64/bin/arm-linux-androideabi-
+# NDK_SYSROOT=$HOME/android-ndk-r10e/platforms/android-19/arch-arm
+
+all: libalib.a
+
+CC = $(CCOMPILER)gcc
+LD = $(CCOMPILER)ld
+AR = $(CCOMPILER)ar
+
+COMPILE_SWITCHES = --sysroot=$(NDK_SYSROOT)
+
+libalib.a: output.o parsing.o bytes.o Makefile
+	$(AR) rcs libalib.a output.o parsing.o bytes.o
+
+output.o: output.c
+	$(CC) $(COMPILE_SWITCHES) -c output.c -o output.o
+
+parsing.o: parsing.c
+	$(CC) $(COMPILE_SWITCHES) -c parsing.c -o parsing.o
+
+bytes.o: bytes.c
+	$(CC) $(COMPILE_SWITCHES) -c bytes.c -o bytes.o
+
+clean:
+	rm *.o *.a
+
