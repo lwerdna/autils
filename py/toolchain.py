@@ -422,10 +422,16 @@ if __name__ == "__main__":
 
     # now go into shell mode
     if oper and oper in ('assemble', 'disassemble'):
-
+        org = None
         while(1):
             line = raw_input('%s> ' % oper)
     
+            m = re.match(r'^setorg (.*)$', line)
+            if m:
+                org = int(m.group(1))
+                print "set org to: 0x%X" % org
+                continue
+
             if not line:
                 break
    

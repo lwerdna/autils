@@ -225,7 +225,7 @@ PT_LOOS = 0x60000000 # OS-specific
 PT_HIOS = 0x6fffffff # OS-specific
 PT_LOPROC = 0x70000000
 PT_HIPROC = 0x7fffffff
-PT_GNU_EH_FRAME	= 0x6474e550
+PT_GNU_EH_FRAME = 0x6474e550
 PT_GNU_STACK = (PT_LOOS + 0x474e551)
 
 SHT_NULL = 0
@@ -246,19 +246,6 @@ SHT_HIPROC = 0x7fffffff
 SHT_LOUSER = 0x80000000
 SHT_HIUSER = 0xffffffff
 
-# Legal values for ST_TYPE subfield of st_info (symbol type).
-STT_NOTYPE = 0
-STT_OBJECT = 1
-STT_FUNC = 2
-STT_SECTION = 3
-STT_FILE = 4
-STT_COMMON = 5
-STT_TLS = 6
-STT_NUM = 7
-STT_GNU_IFUNC = 10
-STT_HIOS = 12
-STT_LOPROC = 13
-STT_HIPROC = 15
 
 SHF_WRITE = 0x1
 SHF_ALLOC = 0x2
@@ -282,20 +269,6 @@ def strValueLookup(value, lookup):
         return lookup[value]
 
     return '<unknown>'
-
-def symbolTypeToString(t):
-    lookup = { 
-        STT_NOTYPE:'STT_NOTYPE', STT_OBJECT:'STT_OBJECT', STT_FUNC:'STT_FUNC',
-        STT_SECTION:'STT_SECTION', STT_FILE:'STT_FILE', STT_COMMON:'STT_COMMON',
-        STT_TLS:'STT_TLS', STT_NUM:'STT_NUM', STT_GNU_IFUNC:'STT_GNU_IFUNC',
-        STT_HIOS:'STT_HIOS', STT_LOPROC:'STT_LOPROC', STT_HIPROC:'STT_HIPROC'
-    }
-
-    if t in lookup:
-        return lookup[t]
-
-    return '<unknown>'
-
 
 def programHeaderTypeToString(t):
     lookup = { \
@@ -630,6 +603,30 @@ class Elf64_Shdr(Elf_Shdr):
         return 64
 
 class Elf_Sym:
+    @staticmethod
+    def typeToString(t):
+        # Legal values for ST_TYPE subfield of st_info (symbol type).
+        lookup = { 
+            0:'STT_NOTYPE', 1:'STT_OBJECT', 2:'STT_FUNC',
+            3:'STT_SECTION', 4:'STT_FILE', 5:'STT_COMMON',
+            6:'STT_TLS', 7:'STT_NUM', 10:'STT_GNU_IFUNC',
+            12:'STT_HIOS', 13:'PROC', 14:'PROC', 15:'PROC'
+        }
+    
+        if t in lookup:
+            return lookup[t]
+    
+        return '<unknown>'
+    @staticmethod
+    def bindtoString(b):
+        lookup = { 0:'STB_LOCAL', 1:'STB_GLOBAL', \
+            2:'STB_WEAK', 3:'STB_NUM' }
+
+        if b in lookup:
+            return lookup[b]
+
+        return '<unknown>'
+
     def __init__(self, FP):
         self.FP = FP
         self.offset = FP.tell()
@@ -671,8 +668,14 @@ class Elf_Sym:
 
     def __str__(self):
         answer = ''
-        answer = '[%08X, %08Xh] (%Xh) \"%s\"\n' % \
-            (self.getName(), self.offset, self.offset + len(self), len(self))
+        answer += '     name:\"%s\"\n' % self.getName()
+        answer += '     info:0x%X bind:%s type:%s\n' % (self.st_info, \
+            Elf_Sym.bindtoString(self.getBind()), Elf_Sym.typeToString(self.getType()))
+        answer += '    other:0x%X\n' % self.st_other
+        answer += '  section:%d\n' % self.st_shndx
+        answer += '    value:0x%X\n' % self.st_value
+        answer += '     size:0x%X\n' % self.st_size
+        answer += '     hash:0x%08X' % dl_new_hash(self.getName())
         return answer
 
 class Elf32_Sym(Elf_Sym):
@@ -826,10 +829,13 @@ class SymTable:
             sym.write()
 
     def __str__(self):
-        buff = 'name'.rjust(24) + 'hash'.rjust(10) + "\n"
+        #buff = 'name'.rjust(24) + 'hash'.rjust(10) + "\n"
+        buff = ''
         for (i,s) in enumerate(self.syms):
-            buff += '%04d: ' % i
-            buff += s.getName().rjust(24) + ('%08X' % dl_new_hash(s.getName())).rjust(10) + "\n"
+            buff += str(s)
+            if i != len(self.syms)-1:
+                buff += '\n--------\n'
+
         return buff
 
 class SymTable32(SymTable):
@@ -840,7 +846,7 @@ class SymTable32(SymTable):
             self.syms.append(Elf32_Sym(FP))
             n -= len(self.syms[-1])
 
-class SymTable64:
+class SymTable64(SymTable):
     def __init__(self, FP, n):
         SymTable.__init__(self, FP, n)
 
@@ -1266,6 +1272,9 @@ class ElfFile:
                 self.symtab = SymTable32(self.FP, sh.sh_size)
             else:
                 self.symtab = SymTable64(self.FP, sh.sh_size)
+
+            if 'strtab' in self.stringTables:
+                self.symtab.loadStringTable(self.stringTables['strtab'])
 
         # symbol table: dynamic
         self.dynsym = None
