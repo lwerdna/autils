@@ -33,7 +33,13 @@ def xtea_encrypt_block(v, key, num_rounds=32):
     [v0,v1] = unpack('>II', v) 
     subkeys = unpack('>IIII', key)
 
+    #print "subkeys: %08X %08X %08X %08X" % subkeys
+
     for i in range(num_rounds):
+        #print "entering encrypt round=%d" % i,
+        #print "v=(%08X,%08X)" % (v0, v1),
+        #print "sum=%08X" % sum
+
         v0 = bitadd(v0, bitadd(( bitshl(v1, 4) ^ (v1 >> 5)), v1) ^ bitadd(sum, subkeys[sum & 3]))
         sum = bitadd(sum, delta)
         v1 = bitadd(v1, bitadd(( bitshl(v0, 4) ^ (v0 >> 5)), v0) ^ bitadd(sum, subkeys[(sum>>11) & 3]))
@@ -66,7 +72,8 @@ def xtea_encrypt_ofb(plaintext, key, iv="\x41\x42\x43\x44\x45\x46\x47\x48"):
         stream += unpack("8B", ct)
   
     #print stream
- 
+    #print "stream: " + str(stream)
+
     # xor each byte
     ciphertext = ''
     for i in range(length):

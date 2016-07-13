@@ -241,7 +241,7 @@ def disasmToString(addr, data, toolchainSettings):
 if __name__ == "__main__":
     G_TOOLCHAIN_DEBUG = 1
 
-    arch = 'AMD64'
+    arch = 'amd64'
     if sys.argv[1:]:
         arch = sys.argv[1]
     print "using ARCH: " + arch 
@@ -258,9 +258,9 @@ if __name__ == "__main__":
     if 'CCOMPILER' in os.environ:
         cross_compile = os.environ['CCOMPILER']
     else:
-        print "no CCOMPILER in environment, defaulting to AMD64"
+        print "no CCOMPILER in environment, defaulting to amd64"
         cross_compile = ''
-        arch = 'AMD64'
+        arch = 'amd64'
 
     settings = {'as': cross_compile + 'as', \
                 'as_flags':'', \
@@ -273,7 +273,7 @@ if __name__ == "__main__":
     ###########################################################################
     # do an example disassembly
     ###########################################################################
-    if arch == 'AMD64':
+    if arch == 'amd64':
         settings['DONT_ALIGN'] = 1
         settings['objdump_flags'] = ' -M intel'
         settings ['as_flags'] = ' -mmnemonic=intel -msyntax=intel'
@@ -302,7 +302,7 @@ if __name__ == "__main__":
         print repr(testInput)
         print disasmToString(0x40349D, testInput, settings)
 
-    elif arch == 'ARM': 
+    elif arch == 'arm': 
         # from http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.dui0040d/BCECABDF.html
         #0xf0000000:                 0xe3a08000 ....     :mov                     r8,#0
         #0xf0000004:                 0xe28f900c ....     :add                     r9,pc,#0xc
@@ -340,7 +340,7 @@ if __name__ == "__main__":
     
         print disasmToString(0xf0000000, testInput, settings)
 
-    elif arch == 'HC12':
+    elif arch == 'hc12':
         # eg:
         # sudo apt-get install gcc-m68hc1x
         # $ CCOMPILER=m68hc11- ~/code/alib/py/toolchain.py HC12
@@ -350,7 +350,7 @@ if __name__ == "__main__":
 
         print disasmToString(0xF873, testInput, settings)
 
-    elif arch == 'THUMB':
+    elif arch == 'thumb':
         # for thumb, add in switches
         settings['as_flags'] = ' -mcpu=cortex-m3 -mthumb'
         settings['objdump_flags'] = ' -M force-thumb'
@@ -396,7 +396,7 @@ if __name__ == "__main__":
 
         print disasmToString(0x8000, testInput, settings)
 
-    elif arch == 'POWERPC':
+    elif arch == 'ppc':
         # from: http://devpit.org/wiki/Debugging_PowerPC_ELF_Binaries
         # 1000154c:       94 21 ff e0     stwu    r1,-32(r1)
         # 10001550:       93 e1 00 18     stw     r31,24(r1)
@@ -415,6 +415,10 @@ if __name__ == "__main__":
         # TODO: get this to work
         #print disasmToString(0x1000154c, testInput, settings)
         pass
+
+    else:
+        print "unknown arch: %s" % arch
+        sys.exit(-1)
 
     ###########################################################################
     # do an example disassembly

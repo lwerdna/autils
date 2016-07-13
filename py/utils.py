@@ -1,7 +1,7 @@
 #!/usr/bin/python
 #------------------------------------------------------------------------------
 #
-#    Copyright 2011-2013 Andrew Lamoureux
+#    Copyright 2011-2015 Andrew Lamoureux
 #
 #    This file is a part of alib.
 #
@@ -34,6 +34,13 @@ def runGetOutput(cmdAndArgs, verbose=False):
     return text
 
     # pipe is destroyed upon scope exit??
+
+def genRandomData(length=8):
+    random.seed()
+    res = ''
+    for i in range(length):
+        res += chr(random.randint(0,255))
+    return res
 
 def genFileName(ext='', nChars=8):
     random.seed()
