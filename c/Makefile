@@ -1,7 +1,7 @@
-all: libalib.a
+all: libautils.a
 
-libalib.a: output.o parsing.o bytes.o Makefile
-	ar rcs libalib.a output.o parsing.o bytes.o
+libautils.a: output.o parsing.o bytes.o Makefile
+	ar rcs libautils.a output.o parsing.o bytes.o
 
 output.o: output.c
 	gcc -c output.c -o output.o
@@ -11,6 +11,13 @@ parsing.o: parsing.c
 
 bytes.o: bytes.c
 	gcc -c bytes.c -o bytes.o
+
+install:
+	install -d /usr/local/include/autils
+	install -m 644 ./bytes.h /usr/local/include/autils
+	install -m 644 ./output.h /usr/local/include/autils
+	install -m 644 ./parsing.h /usr/local/include/autils
+	install ./libautils.a /usr/local/lib
 
 clean:
 	rm *.o *.a
