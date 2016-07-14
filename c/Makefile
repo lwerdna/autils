@@ -1,7 +1,7 @@
 all: libautils.a
 
-libautils.a: output.o parsing.o bytes.o subprocess.o Makefile
-	ar rcs libautils.a output.o parsing.o bytes.o subprocess.o
+libautils.a: output.o parsing.o bytes.o subprocess.o filesys.o Makefile
+	ar rcs libautils.a output.o parsing.o bytes.o subprocess.o filesys.o
 
 output.o: output.c
 	gcc -c output.c -o output.o
@@ -15,12 +15,16 @@ bytes.o: bytes.c
 subprocess.o: subprocess.c
 	gcc -c subprocess.c -o subprocess.o
 
+filesys.o: filesys.c
+	gcc -c filesys.c -o filesys.o
+
 install:
 	install -d /usr/local/include/autils
 	install -m 644 ./bytes.h /usr/local/include/autils
 	install -m 644 ./output.h /usr/local/include/autils
 	install -m 644 ./parsing.h /usr/local/include/autils
 	install -m 644 ./subprocess.h /usr/local/include/autils
+	install -m 644 ./filesys.h /usr/local/include/autils
 	install ./libautils.a /usr/local/lib
 
 clean:
