@@ -1,21 +1,28 @@
 #include <stdio.h> // for STDIN_FILENO, etc.
 #include <unistd.h> // for execve()
+#include <sys/wait.h> // for wait(), waitpid()
+
+// TODO: figure this out for windoze
 
 /*
     eg:
-        path_exec = "/usr/bin/openssl"
+        exec_name = "/usr/bin/openssl"
         argv = {"/usr/bin/openssl", "s_client", "-connect", "smtp.gmail.com:464", "-crlf", "ign_eof", NULL }
         child_stdout = &fd_c_o
         child_stdin = &fd_c_i
+
+    since execvp() is used ('p' as in path) the given executable name will be searched within the
+    path, so you don't need to fully qualify it
+
     */
 int
-fork_and_launch(char *path_exec, char *const argv[], int *child_pid, int *child_stdout, 
+launch_halfway(char *exec_name, char *argv[], pid_t *child_pid_out, int *child_stdout, 
     int *child_stdin)
 {
     int rc = -1;
     int i;
     ssize_t n;
-    pid_t childpid;
+    pid_t child_pid;
 
     /* these fd's used to send commands down to child */
     int fds_down[2];
@@ -27,14 +34,14 @@ fork_and_launch(char *path_exec, char *const argv[], int *child_pid, int *child_
     pipe(fds_up);
 
     /* fork */
-    childpid = fork();
-    if(childpid == -1) {
+    child_pid = fork();
+    if(child_pid == -1) {
         //printf("ERROR: fork()\n");
         goto cleanup;
     }
 
     /* child activity */
-    if(childpid == 0) {
+    if(child_pid == 0) {
         /* close writer from down pipes (we read from parent) */
         close(fds_down[1]); 
         /* close reader from up pipes (we write to parent) */
@@ -46,11 +53,11 @@ fork_and_launch(char *path_exec, char *const argv[], int *child_pid, int *child_
             //printf("dup2() on STDIN returned: %d\n", i);
         } 
         else {
-            perror("dup2()");
+            //perror("dup2()");
             goto cleanup;
         }
 
-        /* NO PRINTF() WORK AFTER dup2() IS DONE */
+        /* //printf() WILL NOT WORK AFTER dup2() IS DONE */
 
         /* duplicate the up tx pipe onto stdout */
         i = dup2(fds_up[1], STDOUT_FILENO);
@@ -59,23 +66,24 @@ fork_and_launch(char *path_exec, char *const argv[], int *child_pid, int *child_
             while(0);
         } 
         else {
-            perror("dup2()");
+            //perror("dup2()");
             goto cleanup;
         }
 
         /* now execute child, which inherits file descriptors */
-        execv(path_exec, argv);
+        execvp(exec_name, argv);
 
-        //printf("ERROR: execv()\n");
+        //printf("ERROR: execvp() allowed fall-thru\n");
     }
     /* parent activity */
     else {
-        //printf("spawned child process: %d\n", childpid);
+        //printf("spawned child process: %d\n", child_pid);
 
         close(fds_down[0]); 
         close(fds_up[1]);
-        *child_stdout = fds_up[0];
-        *child_stdin = fds_down[1];
+        if(child_pid_out) *child_pid_out = child_pid;
+        if(child_stdout) *child_stdout = fds_up[0];
+        if(child_stdin) *child_stdin = fds_down[1];
 
         rc = 0;
     }
@@ -83,3 +91,36 @@ fork_and_launch(char *path_exec, char *const argv[], int *child_pid, int *child_
     cleanup:
     return rc;
 }
+
+int
+launch(char *exec_name, char *argv[], int *ret_code, char *outbuf, int size)
+{
+    int rc = -1;
+
+    int pid, out=-1, in=-1, stat;
+
+    if(0 != launch_halfway(exec_name, argv, &pid, &out, &in)) {
+        //printf("ERROR: launch_halfway()\n");
+        goto cleanup;
+    }
+   
+    if(waitpid(pid, &stat, 0) != pid) {
+        //printf("ERROR: waitpid() didn't return pid\n");
+        goto cleanup;
+    }
+
+    /* if caller wanted output, read it */
+    if(outbuf) {
+        read(out, outbuf, size);
+    }
+
+    //printf("subprocess returned %d\n", stat);
+    if(ret_code) *ret_code = stat;
+
+    rc = 0;
+    cleanup:
+    if(out<0) close(out);
+    if(in<0) close(in);
+    return rc;
+}
+
