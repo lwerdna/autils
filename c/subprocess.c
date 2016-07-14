@@ -16,8 +16,8 @@
 
     */
 int
-launch_halfway(char *exec_name, char *argv[], pid_t *child_pid_out, int *child_stdout, 
-    int *child_stdin)
+launch_halfway(char *exec_name, char *argv[], pid_t *child_pid_out, int *child_stdin, 
+    int *child_stdout, int *child_stderr)
 {
     int rc = -1;
     int i;
@@ -28,10 +28,12 @@ launch_halfway(char *exec_name, char *argv[], pid_t *child_pid_out, int *child_s
     int fds_down[2];
     /* these fd's used to read output from child (he writes up to us) */
     int fds_up[2];
+    int fds_extra[2];
 
     /* create pipes */
     pipe(fds_down);
     pipe(fds_up);
+    pipe(fds_extra);
 
     /* fork */
     child_pid = fork();
@@ -46,6 +48,7 @@ launch_halfway(char *exec_name, char *argv[], pid_t *child_pid_out, int *child_s
         close(fds_down[1]); 
         /* close reader from up pipes (we write to parent) */
         close(fds_up[0]);
+        close(fds_extra[0]);
 
         /* duplicate the down rx pipe onto stdin */
         i = dup2(fds_down[0], STDIN_FILENO);
@@ -70,6 +73,17 @@ launch_halfway(char *exec_name, char *argv[], pid_t *child_pid_out, int *child_s
             goto cleanup;
         }
 
+        i = dup2(fds_extra[1], STDERR_FILENO);
+        if(i >= 0) {
+            //printf("dup2() on STDOUT returned: %d\n", i);
+            while(0);
+        } 
+        else {
+            //perror("dup2()");
+            goto cleanup;
+        }
+
+
         /* now execute child, which inherits file descriptors */
         execvp(exec_name, argv);
 
@@ -81,9 +95,11 @@ launch_halfway(char *exec_name, char *argv[], pid_t *child_pid_out, int *child_s
 
         close(fds_down[0]); 
         close(fds_up[1]);
+        close(fds_extra[1]);
         if(child_pid_out) *child_pid_out = child_pid;
-        if(child_stdout) *child_stdout = fds_up[0];
         if(child_stdin) *child_stdin = fds_down[1];
+        if(child_stdout) *child_stdout = fds_up[0];
+        if(child_stderr) *child_stderr = fds_extra[0];
 
         rc = 0;
     }
@@ -93,13 +109,14 @@ launch_halfway(char *exec_name, char *argv[], pid_t *child_pid_out, int *child_s
 }
 
 int
-launch(char *exec_name, char *argv[], int *ret_code, char *outbuf, int size)
+launch(char *exec_name, char *argv[], int *ret_code, char *buf_stdout,
+    int buf_stdout_sz, char *buf_stderr, int buf_stderr_sz)
 {
     int rc = -1;
 
-    int pid, out=-1, in=-1, stat;
+    int pid, in=-1, out=-1, err=-1, stat;
 
-    if(0 != launch_halfway(exec_name, argv, &pid, &out, &in)) {
+    if(0 != launch_halfway(exec_name, argv, &pid, &in, &out, &err)) {
         //printf("ERROR: launch_halfway()\n");
         goto cleanup;
     }
@@ -109,18 +126,19 @@ launch(char *exec_name, char *argv[], int *ret_code, char *outbuf, int size)
         goto cleanup;
     }
 
+    // TODO: fix overflow
     /* if caller wanted output, read it */
-    if(outbuf) {
-        read(out, outbuf, size);
-    }
+    if(buf_stdout) read(out, buf_stdout, buf_stdout_sz);
+    if(buf_stderr) read(err, buf_stderr, buf_stderr_sz);
 
     //printf("subprocess returned %d\n", stat);
     if(ret_code) *ret_code = stat;
 
     rc = 0;
     cleanup:
-    if(out<0) close(out);
     if(in<0) close(in);
+    if(out<0) close(out);
+    if(err<0) close(err);
     return rc;
 }
 
