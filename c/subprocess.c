@@ -136,9 +136,9 @@ launch(char *exec_name, char *argv[], int *ret_code, char *buf_stdout,
 
     rc = 0;
     cleanup:
-    if(in<0) close(in);
-    if(out<0) close(out);
-    if(err<0) close(err);
+    if(in>=0) close(in);
+    if(out>=0) close(out);
+    if(err>=0) close(err);
     return rc;
 }
 
