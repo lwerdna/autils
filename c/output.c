@@ -11,7 +11,7 @@ void dump_bytes(unsigned char *buf, int len, uintptr_t addr)
 
     i = 0;
     while(i < len) {
-        printf("%" PRIxPTR ": ", addr);
+        printf("%08" PRIxPTR ": ", addr);
        
         /* we write a 16-<space> line everytime */ 
         for(j=0; j<16; ++j) {
@@ -37,6 +37,9 @@ void dump_bytes(unsigned char *buf, int len, uintptr_t addr)
             i++;
         }
         ascii[sizeof(ascii)-1] = '\0';
+
+        /* extra space important here! the resulting double space delimits 
+            the byte list from the ascii interpretation */
         printf(" %s\n", ascii);
         addr += 16;
     }
