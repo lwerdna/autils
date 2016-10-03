@@ -40,11 +40,13 @@ import utils
 # helpers
 ###############################################################################
 
-def parseObjdumpDisasmLine(line):
+def parseObjdumpDisasmLine(line, **kwargs):
 	charsHex = list('abcdefABCDEF01234567890')
 	charsSpace = list(' \t')
 	state = 'START'
 	i = 0
+
+	littleEnd = kwargs.get('littleEnd', True)
 
 	if not line: return None
 
@@ -77,17 +79,39 @@ def parseObjdumpDisasmLine(line):
 	i += 1
 
 	# eat bytes
-	#   4034dc: 01 54 24 08          	add    DWORD PTR [rsp+0x8],edx
-	#           ^^^
 	myBytes = ''
 	while 1:
-		chunk = line[i:i+3]
-		[a,b,c] = list(chunk)
-		if not (a in charsHex and b in charsHex and c in charsSpace):
+		# architectures like x64 have single bytes separated
+		#   4034dc: 01 54 24 08          	add    DWORD PTR [rsp+0x8],edx
+		#           ^^^
+		if re.match(r'^[a-fA-F0-9]{2}\s', line[i:]):
+			myBytes += chr(int(line[i:i+2],16))
+			i += 3
+		# architectures like thumb have two-byte chunks
+		#   8030:	f8cc 0000 	str.w	r0, [ip]
+		#           ^^^^^
+		elif re.match(r'^[a-fA-F0-9]{4}\s', line[i:]):
+			tmp = []
+			tmp.append(chr(int(line[i:i+2],16)))
+			tmp.append(chr(int(line[i+2:i+4],16)))
+			if littleEnd: tmp.reverse()
+			myBytes += ''.join(tmp)
+			i += 5
+		# architectures like arm have four-byte chunks
+		#   f0000000:	e3a08000 	mov	r8, #0	; 0x0
+		#               ^^^^^^^^^
+		elif re.match(r'^[a-fA-F0-9]{8}\s', line[i:]):
+			tmp = []
+			tmp.append(chr(int(line[i:i+2],16)))
+			tmp.append(chr(int(line[i+2:i+4],16)))
+			tmp.append(chr(int(line[i+4:i+6],16)))
+			tmp.append(chr(int(line[i+6:i+8],16)))
+			if littleEnd: tmp.reverse()
+			myBytes += ''.join(tmp)
+			i += 9
+		else:
 			break
-		myBytes += chr(int(chunk, 16))
-		i += 3
-
+		
 	# eat space
 	#   4034dc: 01 54 24 08          	add    DWORD PTR [rsp+0x8],edx
 	#                       ^^^^^^^^^^^^
@@ -201,8 +225,11 @@ def assemble(source, toolchainSettings):
 
 	return [blob, syms]
 
-def disassemble(addr, data, toolchainSettings):
+def disassemble(addr, data, toolchainSettings, **kwargs):
 	result = ''
+
+	littleEnd = kwargs.get('littleEnd', True)
+	verbose = kwargs.get('verbose', False)
 
 	# objdump doesn't like unaligned sections
 	prepad = 0
@@ -313,7 +340,7 @@ def disassemble(addr, data, toolchainSettings):
 	instrBytes = []
 	instrStrings = []
 	for l in lines:
-		result = parseObjdumpDisasmLine(l)
+		result = parseObjdumpDisasmLine(l, littleEnd=littleEnd)
 		if not result:
 			continue
 		instrBytes.append(result[0])
@@ -430,7 +457,11 @@ if __name__ == "__main__":
 			"\x70\x00\x00\xf0" + \
 			"\x58\x00\x00\xf0"
 	
-		print disasmToString(0xf0000000, testInput, settings)
+		addr = 0xf0000000
+		[disasmBytes, disasmStrs] = disassemble(addr, testInput, settings)
+		print disasmBytes
+		print disasmStrs
+		disassemblyPrinter(addr, disasmBytes, disasmStrs)
 
 	elif arch == 'hc12':
 		# eg:
@@ -451,34 +482,34 @@ if __name__ == "__main__":
 
 		# from http://johannes-bauer.com/mcus/cortex/
 		#	8000:	   b410			push	{r4}
-		#	8002:	   f64f 7cee	   movw	ip, #65518	  ; 0xffee
-		#	8006:	   f243 3444	   movw	r4, #13124	  ; 0x3344
+		#	8002:	   f64f 7cee	movw	ip, #65518	  ; 0xffee
+		#	8006:	   f243 3444	movw	r4, #13124	  ; 0x3344
 		#	800a:	   2300			movs	r3, #0
-		#	800c:	   f2c1 1422	   movt	r4, #4386	   ; 0x1122
-		#	8010:	   f2c0 0cc0	   movt	ip, #192		; 0xc0
+		#	800c:	   f2c1 1422	movt	r4, #4386	   ; 0x1122
+		#	8010:	   f2c0 0cc0	movt	ip, #192		; 0xc0
 		#	8014:	   43d8			mvns	r0, r3
-		#	8016:	   6023			str	 r3, [r4, #0]
+		#	8016:	   6023			str	 	r3, [r4, #0]
 		#	8018:	   3301			adds	r3, #1
-		#	801a:	   f243 3144	   movw	r1, #13124	  ; 0x3344
-		#	801e:	   f000 00c3	   and.w   r0, r0, #195	; 0xc3
-		#	8022:	   f64f 72ee	   movw	r2, #65518	  ; 0xffee
-		#	8026:	   2b80			cmp	 r3, #128		; 0x80
-		#	8028:	   f2c1 1122	   movt	r1, #4386	   ; 0x1122
-		#	802c:	   f2c0 02c0	   movt	r2, #192		; 0xc0
-		#	8030:	   f8cc 0000	   str.w   r0, [ip]
+		#	801a:	   f243 3144	movw	r1, #13124	  ; 0x3344
+		#	801e:	   f000 00c3	and.w   r0, r0, #195	; 0xc3
+		#	8022:	   f64f 72ee	movw	r2, #65518	  ; 0xffee
+		#	8026:	   2b80			cmp	 	r3, #128		; 0x80
+		#	8028:	   f2c1 1122	movt	r1, #4386	   ; 0x1122
+		#	802c:	   f2c0 02c0	movt	r2, #192		; 0xc0
+		#	8030:	   f8cc 0000	str.w   r0, [ip]
 		#	8034:	   d1ee			bne.n   8014 
-		#	8036:	   680b			ldr	 r3, [r1, #0]
-		#	8038:	   6810			ldr	 r0, [r2, #0]
-		#	803a:	   4218			tst	 r0, r3
+		#	8036:	   680b			ldr	 	r3, [r1, #0]
+		#	8038:	   6810			ldr	 	r0, [r2, #0]
+		#	803a:	   4218			tst	 	r0, r3
 		#	803c:	   d104			bne.n   8048 
 		#	803e:	   2399			movs	r3, #153		; 0x99
-		#	8040:	   6013			str	 r3, [r2, #0]
+		#	8040:	   6013			str	 	r3, [r2, #0]
 		#	8042:	   2000			movs	r0, #0
-		#	8044:	   bc10			pop	 {r4}
-		#	8046:	   4770			bx	  lr
+		#	8044:	   bc10			pop		{r4}
+		#	8046:	   4770			bx	  	lr
 		#	8048:	   2377			movs	r3, #119		; 0x77
-		#	804a:	   600b			str	 r3, [r1, #0]
-		#	804c:	   e7f9			b.n	 8042 
+		#	804a:	   600b			str	 	r3, [r1, #0]
+		#	804c:	   e7f9			b.n	 	8042 
 		#	804e:	   bf00			nop
 	
 		testInput = '' + \
