@@ -20,8 +20,6 @@
 #
 #------------------------------------------------------------------------------
 
-G_TOOLCHAIN_DEBUG = False
-
 import re
 import os
 import sys
@@ -123,9 +121,12 @@ def parseObjdumpDisasmLine(line, **kwargs):
 	# 
 	return (myBytes, line[i:])
 
-def disassemblyPrinter(addr, bytes_, strings):
+def disassemblyPrinter(addr, bytes_, strings, **kwargs):
+	addrWidth = kwargs.get('addrWidth', 32)
+
 	for i in range(len(strings)):
-		addrStr = '%016X' % addr
+		fmt = {8:'%02X', 16:'%04X', 32:'%08X', 64:'%016X'}[addrWidth]
+		addrStr = fmt % addr
 		byteStr = binascii.hexlify(bytes_[i]).ljust(20)
 		print '%s: %s %s' % (addrStr, byteStr, strings[i])
 		addr += len(bytes_[i])
@@ -134,11 +135,13 @@ def disassemblyPrinter(addr, bytes_, strings):
 # assemble/disassemble
 ###############################################################################
 
-def assemble(source, toolchainSettings):
+def assemble(source, toolchainSettings, **kwargs):
+	verbose = kwargs.get('verbose', False)
+
 	(asm_handle, asm_name) = tempfile.mkstemp(suffix='.s')
 	(obj0_handle, obj0_name) = tempfile.mkstemp(suffix='.o')
 
-	if G_TOOLCHAIN_DEBUG: 
+	if verbose: 
 		print "asm_name: %s" % asm_name
 		print "obj0_name: %s" % obj0_name
 
@@ -150,11 +153,11 @@ def assemble(source, toolchainSettings):
 	# assemble to object file
 	cmd = '%s %s %s -o %s' % \
 			(toolchainSettings['as'], toolchainSettings['as_flags'], asm_name, obj0_name)
-	output = utils.runGetOutput(cmd, G_TOOLCHAIN_DEBUG) 
+	output = utils.runGetOutput(cmd, verbose) 
 
 	# disassemble output file
 	cmd = '%s -d %s %s' % (toolchainSettings['objdump'], toolchainSettings['objdump_flags'], obj0_name) 
-	output = utils.runGetOutput(cmd, G_TOOLCHAIN_DEBUG)
+	output = utils.runGetOutput(cmd, verbose)
 
 	# parse disassembly output
 	blob = ''
@@ -177,7 +180,7 @@ def assemble(source, toolchainSettings):
 
 	# parse symbol table
 	cmd = '%s -t %s %s' % (toolchainSettings['objdump'], toolchainSettings['objdump_flags'], obj0_name) 
-	output = utils.runGetOutput(cmd, G_TOOLCHAIN_DEBUG)
+	output = utils.runGetOutput(cmd, verbose)
 
 	syms = {}
 	lines = output.split("\n")
@@ -200,7 +203,7 @@ def assemble(source, toolchainSettings):
 
 		m = re.match(reStr, l)
 		if m:
-			#if G_TOOLCHAIN_DEBUG:
+			#if verbose:
 			#	print "DID MATCH ON SYMBOL INFO LINE:\n%s" % l
 
 			#syms.append( \
@@ -214,12 +217,12 @@ def assemble(source, toolchainSettings):
 			syms[m.group('name')] = int(m.group('val_addr'), 16)
 			
 		else:
-			#if G_TOOLCHAIN_DEBUG:
+			#if verbose:
 			#	print "COULDN'T MATCH SYMBOL INFO ON LINE:\n%s" % l
 			pass
 
 	# delete temp files
-	if not G_TOOLCHAIN_DEBUG:
+	if not verbose:
 		os.unlink(asm_name)
 		os.unlink(obj0_name)
 
@@ -281,7 +284,7 @@ def disassemble(addr, data, toolchainSettings, **kwargs):
 	# assemble to object file
 	cmd = '%s %s %s -o %s' % \
 			(toolchainSettings['as'], toolchainSettings['as_flags'], asm_name, obj0_name)
-	output = utils.runGetOutput(cmd, G_TOOLCHAIN_DEBUG) 
+	output = utils.runGetOutput(cmd, verbose) 
 
 	# create linker file
 	ld_obj = os.fdopen(ld_handle, 'w')
@@ -294,7 +297,7 @@ def disassemble(addr, data, toolchainSettings, **kwargs):
 
 	# link object file to new object file with the relocation of .text
 	cmd = '%s %s --script %s -o %s' % (toolchainSettings['ld'], obj0_name, ld_name, obj1_name)
-	output = utils.runGetOutput(cmd, G_TOOLCHAIN_DEBUG)
+	output = utils.runGetOutput(cmd, verbose)
 
 	# replace all symbols '$d' with '$a' so that objdump won't distinguish between
 	# code and data within .text (see "mapping symbols" in arm eabi pdf)
@@ -308,10 +311,10 @@ def disassemble(addr, data, toolchainSettings, **kwargs):
  
 	# disassemble output file
 	cmd = '%s -d %s %s' % (toolchainSettings['objdump'], toolchainSettings['objdump_flags'], obj1_name) 
-	output = utils.runGetOutput(cmd, G_TOOLCHAIN_DEBUG)
+	output = utils.runGetOutput(cmd, verbose)
 
 	# delete temp files
-	if G_TOOLCHAIN_DEBUG:
+	if verbose:
 		print "file input: " + asm_name
 		print "file obj0: " + obj0_name
 		print "file obj1: " + obj1_name
@@ -356,8 +359,6 @@ def disassemble(addr, data, toolchainSettings, **kwargs):
 # ndk_eabi
 # ./toolchain.py ARM assemble
 if __name__ == "__main__":
-	G_TOOLCHAIN_DEBUG = 1
-
 	arch = 'amd64'
 	if sys.argv[1:]:
 		arch = sys.argv[1]
@@ -418,8 +419,8 @@ if __name__ == "__main__":
 		testInput = ''.join(map(lambda x: struct.pack('B', x), testInput))
 		print repr(testInput)
 		addr = 0x40349D
-		[disasmBytes, disasmStrs] = disassemble(addr, testInput, settings)
-		disassemblyPrinter(addr, disasmBytes, disasmStrs)
+		[disasmBytes, disasmStrs] = disassemble(addr, testInput, settings, verbose=True)
+		disassemblyPrinter(addr, disasmBytes, disasmStrs, addrWidth=64, verbose=True)
 
 	elif arch == 'arm': 
 		# from http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.dui0040d/BCECABDF.html
@@ -458,10 +459,8 @@ if __name__ == "__main__":
 			"\x58\x00\x00\xf0"
 	
 		addr = 0xf0000000
-		[disasmBytes, disasmStrs] = disassemble(addr, testInput, settings)
-		print disasmBytes
-		print disasmStrs
-		disassemblyPrinter(addr, disasmBytes, disasmStrs)
+		[disasmBytes, disasmStrs] = disassemble(addr, testInput, settings, verbose=True)
+		disassemblyPrinter(addr, disasmBytes, disasmStrs, addrWidth=32, verbose=True)
 
 	elif arch == 'hc12':
 		# eg:
@@ -472,8 +471,8 @@ if __name__ == "__main__":
 		testInput = '\x3B\x1B\x9c\x6c\x80\xec\x88\x6c\x82\x20\x16'
 
 		addr = 0xF873
-		[disasmBytes, disasmStrs] = disassemble(addr, testInput, settings)
-		disassemblyPrinter(addr, disasmBytes, disasmStrs)
+		[disasmBytes, disasmStrs] = disassemble(addr, testInput, settings, verbose=True)
+		disassemblyPrinter(addr, disasmBytes, disasmStrs, addrWidth=32, verbose=True)
 
 	elif arch == 'thumb':
 		# for thumb, add in switches
@@ -520,8 +519,8 @@ if __name__ == "__main__":
 			"\x77\x23\x0b\x60\xf9\xe7\x00\xbf"
 
 		addr = 0x8000
-		[disasmBytes, disasmStrs] = disassemble(addr, testInput, settings)
-		disassemblyPrinter(addr, disasmBytes, disasmStrs)
+		[disasmBytes, disasmStrs] = disassemble(addr, testInput, settings, verbose=True)
+		disassemblyPrinter(addr, disasmBytes, disasmStrs, addrWidth=32, verbose=True)
 
 	elif arch == 'ppc':
 		# from: http://devpit.org/wiki/Debugging_PowerPC_ELF_Binaries
@@ -540,8 +539,8 @@ if __name__ == "__main__":
 		# 1000157c:	   4e 80 00 20	 blr
 
 		# TODO: get this to work
-		#[disasmBytes, disasmStrs] = disassemble(addr, testInput, settings)
-		#disassemblyPrinter(addr, disasmBytes, disasmStrs)
+		#[disasmBytes, disasmStrs] = disassemble(addr, testInput, settings, verbose=True)
+		#disassemblyPrinter(addr, disasmBytes, disasmStrs, addrWidth=32, verbose=True)
 		pass
 
 	else:
