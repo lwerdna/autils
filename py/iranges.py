@@ -88,6 +88,35 @@ class IrangeManager:
 		
 		self.normalize()
 
+	def remove(self, left, right):
+		if right <= left: return
+
+		newRange = Irange(left, right)
+
+		self.Iranges = filter(lambda x: x not in newRange, self.Iranges)
+
+		a = filter(lambda ir: left in ir, self.Iranges)
+		b = filter(lambda ir: right in ir, self.Iranges)
+		assert(not a or len(a)==1)
+		assert(not b or len(b)==1)
+		if(a): a = a[0]
+		if(b): b = b[0]
+
+		if a: 
+			self.Iranges.remove(a)
+			assert(a.left <= left)
+			if a.left != left:
+				self.Iranges.append(Irange(a.left, left))
+
+		if b:
+			if b != a:
+				self.Iranges.remove(b)
+			assert(right <= b.right)
+			if right != b.right:
+				self.Iranges.append(Irange(right, b.right))
+
+		self.normalize()
+
 	def asList(self):
 		result = []
 		for ir in self.Iranges:
@@ -101,20 +130,8 @@ class IrangeManager:
 		return '\n'.join(substrs)
 
 if __name__ == '__main__':
-	irm = IrangeManager(10)
-	irm.add(10, 20)
-	irm.add(30, 40)
-	irm.add(50, 60)
-	irm.add(70, 80)
-	irm.add(90, 100)
-	print irm
-	print '--------------'
-	irm.add(15,35)
-	irm.add(75,95)
-	print irm
-	print irm.asList()
 
-	for testIdx in range(1000):
+	for testIdx in range(1000000):
 		print "generating random list"
 		myMgr = IrangeManager()
 		mySet = set()
@@ -123,12 +140,16 @@ if __name__ == '__main__':
 			a = random.randint(1,99)
 			b = -1
 			while b<1 or b>99:	
-				b = a + random.randint(-13,13)
+				b = a + random.randint(-12,12)
 
-			print "adding [%d,%d)" % (a,b)
-
-			myMgr.add(a,b)
-			mySet = mySet.union(set(range(a,b)))
+			if random.randint(0,1):
+				print "adding [%d,%d)" % (a,b)
+				myMgr.add(a,b)
+				mySet = mySet.union(set(range(a,b)))
+			else:
+				print "removing [%d,%d)" % (a,b)
+				myMgr.remove(a,b)
+				mySet = mySet.difference(set(range(a,b)))
 
 		myMgr = myMgr.asList()
 		mySet = sorted(list(mySet))
