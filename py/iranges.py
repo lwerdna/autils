@@ -34,14 +34,14 @@ class Irange:
 			return "[%d,%d)" % (self.left, self.right)
 
 class IrangeManager:
-	def __init__(self, capacity):
-		assert(capacity>0)
+	def __init__(self, capacity=None):
+		assert(not capacity or capacity>0)
 		self.Iranges = []
 		self.capacity = capacity;
 
 	def normalize(self):
 		# if exceeded capacity, keep largest ranges
-		if len(self.Iranges) > self.capacity:
+		if self.capacity and len(self.Iranges) > self.capacity:
 			self.Iranges = sorted(self.Iranges, key=lambda r:r.length())
 			self.Iranges = self.Iranges[0:self.capacity]
 
@@ -49,12 +49,14 @@ class IrangeManager:
 		self.Iranges = sorted(self.Iranges, key=lambda r:r.left)
 
 	def add(self, left, right):
+		# nonsense or 0 length ranges
+		if right <= left: return
+
 		newRange = Irange(left, right)
 
 		# remove current ranges enveloped by this one
 		# important! rest of functionality depends on this post condition
 		self.Iranges = filter(lambda x: x not in newRange, self.Iranges)
-
 
 		# find interval(s) that the endpoints are in
 		a = filter(lambda ir: left in ir, self.Iranges)
@@ -67,7 +69,7 @@ class IrangeManager:
 		if(b): b = b[0]
 
 		# sanity checks
-		assert((not a or not b) or (a.left < b.left))
+		assert((not a or not b) or (a.left <= b.left))
 
 		# handle cases
 		if not a and not b:
@@ -80,7 +82,8 @@ class IrangeManager:
 			self.Iranges.append(Irange(left, b.right))
 		elif a and b:
 			self.Iranges.remove(a)
-			self.Iranges.remove(b)
+			if a != b:
+				self.Iranges.remove(b)
 			self.Iranges.append(Irange(a.left, b.right))
 		
 		self.normalize()
@@ -111,4 +114,30 @@ if __name__ == '__main__':
 	print irm
 	print irm.asList()
 
-	for 
+	for testIdx in range(1000):
+		print "generating random list"
+		myMgr = IrangeManager()
+		mySet = set()
+		for rIdx in range(10):
+			(a,b) = (None,None)
+			a = random.randint(1,99)
+			b = -1
+			while b<1 or b>99:	
+				b = a + random.randint(-13,13)
+
+			print "adding [%d,%d)" % (a,b)
+
+			myMgr.add(a,b)
+			mySet = mySet.union(set(range(a,b)))
+
+		myMgr = myMgr.asList()
+		mySet = sorted(list(mySet))
+		
+		print "myMgr: ", myMgr
+		print "mySet: ", mySet
+
+		if myMgr == mySet:
+			print "PASS %d" % testIdx
+		else:
+			print "FAIL"
+				
