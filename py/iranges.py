@@ -13,8 +13,8 @@ class Irange:
 		self.right = right
 		self.hexFmt = hexFmt
 
-	def length(self):
-		return right-left
+	def __len__(self):
+		return self.right-self.left
 
 	def __contains__(self, other):
 		# see if a range is within our range
@@ -34,15 +34,16 @@ class Irange:
 			return "[%d,%d)" % (self.left, self.right)
 
 class IrangeManager:
-	def __init__(self, capacity=None):
+	def __init__(self, capacity=None, hexFmt=False):
 		assert(not capacity or capacity>0)
 		self.Iranges = []
 		self.capacity = capacity;
+		self.hexFmt = hexFmt
 
 	def normalize(self):
 		# if exceeded capacity, keep largest ranges
 		if self.capacity and len(self.Iranges) > self.capacity:
-			self.Iranges = sorted(self.Iranges, key=lambda r:r.length())
+			self.Iranges = sorted(self.Iranges, key=lambda r:len(r))
 			self.Iranges = self.Iranges[0:self.capacity]
 
 		# sort ascending order
@@ -52,7 +53,7 @@ class IrangeManager:
 		# nonsense or 0 length ranges
 		if right <= left: return
 
-		newRange = Irange(left, right)
+		newRange = Irange(left, right, self.hexFmt)
 
 		# remove current ranges enveloped by this one
 		# important! rest of functionality depends on this post condition
@@ -76,22 +77,22 @@ class IrangeManager:
 			self.Iranges.append(newRange)
 		elif a and not b:
 			self.Iranges.remove(a)
-			self.Iranges.append(Irange(a.left, right))
+			self.Iranges.append(Irange(a.left, right, self.hexFmt))
 		elif not a and b:
 			self.Iranges.remove(b)
-			self.Iranges.append(Irange(left, b.right))
+			self.Iranges.append(Irange(left, b.right, self.hexFmt))
 		elif a and b:
 			self.Iranges.remove(a)
 			if a != b:
 				self.Iranges.remove(b)
-			self.Iranges.append(Irange(a.left, b.right))
+			self.Iranges.append(Irange(a.left, b.right, self.hexFmt))
 		
 		self.normalize()
 
 	def remove(self, left, right):
 		if right <= left: return
 
-		newRange = Irange(left, right)
+		newRange = Irange(left, right, self.hexFmt)
 
 		self.Iranges = filter(lambda x: x not in newRange, self.Iranges)
 
@@ -106,14 +107,14 @@ class IrangeManager:
 			self.Iranges.remove(a)
 			assert(a.left <= left)
 			if a.left != left:
-				self.Iranges.append(Irange(a.left, left))
+				self.Iranges.append(Irange(a.left, left, self.hexFmt))
 
 		if b:
 			if b != a:
 				self.Iranges.remove(b)
 			assert(right <= b.right)
 			if right != b.right:
-				self.Iranges.append(Irange(right, b.right))
+				self.Iranges.append(Irange(right, b.right, self.hexFmt))
 
 		self.normalize()
 
@@ -123,14 +124,16 @@ class IrangeManager:
 			result += list(range(ir.left, ir.right))
 		return result
 
+	def __len__(self):
+		return len(self.Iranges)
+
 	def __str__(self):
 		substrs = []
 		for ir in self.Iranges:
 			substrs.append(str(ir))
-		return '\n'.join(substrs)
+		return ' '.join(substrs)
 
 if __name__ == '__main__':
-
 	for testIdx in range(1000000):
 		print "generating random list"
 		myMgr = IrangeManager()
@@ -161,4 +164,5 @@ if __name__ == '__main__':
 			print "PASS %d" % testIdx
 		else:
 			print "FAIL"
+			assert(False)
 				

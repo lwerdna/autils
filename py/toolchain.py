@@ -1,11 +1,11 @@
 #!/usr/bin/python
 #------------------------------------------------------------------------------
 #
-#	This file is a part of alib.
+#	This file is a part of autils.
 #
-#	Copyright 2011-2014 Andrew Lamoureux
+#	Copyright 2011-2016 Andrew Lamoureux
 #
-#	alib is free software: you can redistribute it and/or modify
+#	autils is free software: you can redistribute it and/or modify
 #	it under the terms of the GNU General Public License as published by
 #	the Free Software Foundation, either version 3 of the License, or
 #	(at your option) any later version.
@@ -49,10 +49,10 @@ def parseObjdumpDisasmLine(line, **kwargs):
 	if not line: return None
 
 	# line's like:
-	#   4034fa: ad                   	lods   eax,DWORD PTR ds:[rsi]
+	#   4034fa: ad				   	lods   eax,DWORD PTR ds:[rsi]
 
 	# eat whitespace
-	#   4034dc: 01 54 24 08          	add    DWORD PTR [rsp+0x8],edx
+	#   4034dc: 01 54 24 08		  	add	DWORD PTR [rsp+0x8],edx
 	# ^^
 	while 1:
 		if not line[i] in charsSpace:
@@ -60,7 +60,7 @@ def parseObjdumpDisasmLine(line, **kwargs):
 		i += 1
 
 	# eat address
-	#   4034dc: 01 54 24 08          	add    DWORD PTR [rsp+0x8],edx
+	#   4034dc: 01 54 24 08		  	add	DWORD PTR [rsp+0x8],edx
 	#   ^^^^^^^^
 	tmp = i
 	while 1:
@@ -80,14 +80,14 @@ def parseObjdumpDisasmLine(line, **kwargs):
 	myBytes = ''
 	while 1:
 		# architectures like x64 have single bytes separated
-		#   4034dc: 01 54 24 08          	add    DWORD PTR [rsp+0x8],edx
-		#           ^^^
+		#   4034dc: 01 54 24 08		  	add	DWORD PTR [rsp+0x8],edx
+		#		   ^^^
 		if re.match(r'^[a-fA-F0-9]{2}\s', line[i:]):
 			myBytes += chr(int(line[i:i+2],16))
 			i += 3
 		# architectures like thumb have two-byte chunks
 		#   8030:	f8cc 0000 	str.w	r0, [ip]
-		#           ^^^^^
+		#		   ^^^^^
 		elif re.match(r'^[a-fA-F0-9]{4}\s', line[i:]):
 			tmp = []
 			tmp.append(chr(int(line[i:i+2],16)))
@@ -97,7 +97,7 @@ def parseObjdumpDisasmLine(line, **kwargs):
 			i += 5
 		# architectures like arm have four-byte chunks
 		#   f0000000:	e3a08000 	mov	r8, #0	; 0x0
-		#               ^^^^^^^^^
+		#			   ^^^^^^^^^
 		elif re.match(r'^[a-fA-F0-9]{8}\s', line[i:]):
 			tmp = []
 			tmp.append(chr(int(line[i:i+2],16)))
@@ -111,8 +111,8 @@ def parseObjdumpDisasmLine(line, **kwargs):
 			break
 		
 	# eat space
-	#   4034dc: 01 54 24 08          	add    DWORD PTR [rsp+0x8],edx
-	#                       ^^^^^^^^^^^^
+	#   4034dc: 01 54 24 08		  	add	DWORD PTR [rsp+0x8],edx
+	#					   ^^^^^^^^^^^^
 	while 1:
 		if not line[i] in charsSpace:
 			break
@@ -326,13 +326,13 @@ def disassemble(addr, data, toolchainSettings, **kwargs):
 		os.unlink(ld_name)
 
 	# output here looks like:
-	# /tmp/tmpiCaOBI.o:     file format elf64-x86-64
+	# /tmp/tmpiCaOBI.o:	 file format elf64-x86-64
 	#
 	# Disassembly of section .text:
 	#
 	# 000000000040349d <.text>:
-	#  40349d:	5b                   	pop    rbx
-	#  40349e:	6a 01                	push   0x1
+	#  40349d:	5b				   	pop	rbx
+	#  40349e:	6a 01					push   0x1
 	# ...
 
 	# output into list of lines
@@ -465,7 +465,7 @@ if __name__ == "__main__":
 	elif arch == 'hc12':
 		# eg:
 		# sudo apt-get install gcc-m68hc1x
-		# $ CCOMPILER=m68hc11- ~/code/alib/py/toolchain.py HC12
+		# $ CCOMPILER=m68hc11- ~/code/autils/py/toolchain.py HC12
 		settings['DONT_ALIGN'] = 1
 
 		testInput = '\x3B\x1B\x9c\x6c\x80\xec\x88\x6c\x82\x20\x16'
