@@ -85,3 +85,25 @@ gen_tmp_file(const char *templ, char *path_out, FILE **fp_out)
     cleanup:
     return rc;
 }
+
+int
+get_file_listing()
+{
+	// TODO: FindFirstFileA stuff on windows
+
+	// this stuff on linux:
+
+	//	DIR *dp;
+	//	struct dirent *ep;
+	//
+	//	dp = opendir("/usr/local/bin");
+	//	if(dp == NULL) return -1;
+	//	
+	//	while((ep = readdir(dp))) {
+	//		printf("%s\n", ep->d_name);
+	//	}
+	//
+	//	closedir(dp);
+
+	return 0;
+}

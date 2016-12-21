@@ -83,7 +83,6 @@ launch_halfway(char *exec_name, char *argv[], pid_t *child_pid_out, int *child_s
             goto cleanup;
         }
 
-
         /* now execute child, which inherits file descriptors */
         execvp(exec_name, argv);
 
