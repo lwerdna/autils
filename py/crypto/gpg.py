@@ -551,6 +551,12 @@ def decrypt_cfb(ctext, key):
 	#print "returning ptext: " + ptext.encode('hex')
 	return ptext
 
+#def encrypt_cfb(ptext, key):
+#	FR = '\x00\x00\x00\x00\x00\x00\x00\x00'
+#	FRE = cast128_encrypt_block(FR, key)
+
+#	randomData = genRandomData(8)	
+
 if __name__ == "__main__":
 	if not sys.argv[1:]:
 		print "file argument required"
@@ -694,6 +700,11 @@ if __name__ == "__main__":
 		print "attempting to decrypt:\n" + getHexDump(packet9.body)
 
 		ptext = decrypt_cfb(packet9.body, key)
+
+		fp = open('packet9', 'wb')
+		#fp.write(zlib.decompress(ptext[2:]))
+		fp.write(ptext)
+		fp.close()
 
 		print "ptext: " + ptext.encode('hex')
 		p9sub = packetBroker(ptext)
