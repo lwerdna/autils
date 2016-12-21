@@ -1,5 +1,6 @@
 FLAGS_DEBUG = -g -O0
-CPPFLAGS += -g -O0 -std=c++11
+CFLAGS += $(FLAGS_DEBUG)
+CPPFLAGS += $(FLAGS_DEBUG) -std=c++11
 
 all: libautils.a test
 

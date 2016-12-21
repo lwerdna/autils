@@ -4,7 +4,10 @@
 
 // TODO: figure this out for windoze
 
-/*
+/* launch a subprocess, returning pid, stdin, stdout, stderr
+
+	caller is responsible for closing descriptors, optionally terminating child
+
     eg:
         exec_name = "/usr/bin/openssl"
         argv = {"/usr/bin/openssl", "s_client", "-connect", "smtp.gmail.com:464", "-crlf", "ign_eof", NULL }
@@ -14,9 +17,11 @@
     since execvp() is used ('p' as in path) the given executable name will be searched within the
     path, so you don't need to fully qualify it
 
+	
+
     */
 int
-launch_halfway(char *exec_name, char *argv[], pid_t *child_pid_out, int *child_stdin, 
+launch_ex(char *exec_name, char *argv[], pid_t *child_pid_out, int *child_stdin, 
     int *child_stdout, int *child_stderr)
 {
     int rc = -1;
@@ -86,7 +91,7 @@ launch_halfway(char *exec_name, char *argv[], pid_t *child_pid_out, int *child_s
         /* now execute child, which inherits file descriptors */
         execvp(exec_name, argv);
 
-        //printf("ERROR: execvp() allowed fall-thru\n");
+        //printf("ERROR: execvp() allowed to fall-thru\n");
     }
     /* parent activity */
     else {
@@ -95,10 +100,15 @@ launch_halfway(char *exec_name, char *argv[], pid_t *child_pid_out, int *child_s
         close(fds_down[0]); 
         close(fds_up[1]);
         close(fds_extra[1]);
+
         if(child_pid_out) *child_pid_out = child_pid;
+
         if(child_stdin) *child_stdin = fds_down[1];
+		else close(fds_down[1]);
         if(child_stdout) *child_stdout = fds_up[0];
+		else close(fds_up[0]);
         if(child_stderr) *child_stderr = fds_extra[0];
+		else close(fds_extra[0]);
 
         rc = 0;
     }
@@ -115,8 +125,8 @@ launch(char *exec_name, char *argv[], int *ret_code, char *buf_stdout,
 
     int pid, in=-1, out=-1, err=-1, stat;
 
-    if(0 != launch_halfway(exec_name, argv, &pid, &in, &out, &err)) {
-        //printf("ERROR: launch_halfway()\n");
+    if(0 != launch_ex(exec_name, argv, &pid, &in, &out, &err)) {
+        //printf("ERROR: launch_ex()\n");
         goto cleanup;
     }
    
