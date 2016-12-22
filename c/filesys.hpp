@@ -5,5 +5,5 @@
 
 int filesys_cwd(string &result);
 
-int filesys_ls(int type, string val, string where, vector<string> &results);
+int filesys_ls(int type, string val, string where, vector<string> &results, bool addPath=false);
 

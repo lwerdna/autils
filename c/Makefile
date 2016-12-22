@@ -44,6 +44,7 @@ test: test.cpp libautils.a
 install:
 	install -d /usr/local/include/autils
 	install -m 644 ./*.h /usr/local/include/autils
+	install -m 644 ./*.hpp /usr/local/include/autils
 	install ./libautils.a /usr/local/lib
 
 clean:

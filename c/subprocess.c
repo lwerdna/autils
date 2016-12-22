@@ -1,6 +1,7 @@
 #include <stdio.h> // for STDIN_FILENO, etc.
 #include <unistd.h> // for execve()
 #include <sys/wait.h> // for wait(), waitpid()
+#include <signal.h> // kill()
 
 // TODO: figure this out for windoze
 
@@ -126,22 +127,25 @@ launch(char *exec_name, char *argv[], int *ret_code, char *buf_stdout,
     int pid, in=-1, out=-1, err=-1, stat;
 
     if(0 != launch_ex(exec_name, argv, &pid, &in, &out, &err)) {
-        //printf("ERROR: launch_ex()\n");
-        goto cleanup;
-    }
-   
-    if(waitpid(pid, &stat, 0) != pid) {
-        //printf("ERROR: waitpid() didn't return pid\n");
         goto cleanup;
     }
 
-    // TODO: fix overflow
     /* if caller wanted output, read it */
     if(buf_stdout) read(out, buf_stdout, buf_stdout_sz);
     if(buf_stderr) read(err, buf_stderr, buf_stderr_sz);
 
+	if(0 != kill(pid, SIGTERM)) {
+		goto cleanup;
+	}
+
+    if(waitpid(pid, &stat, 0) != pid) {
+        goto cleanup;
+    }
+
     //printf("subprocess returned %d\n", stat);
-    if(ret_code) *ret_code = stat;
+    if(ret_code) {
+		*ret_code = WEXITSTATUS(stat);
+	}
 
     rc = 0;
     cleanup:

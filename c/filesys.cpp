@@ -8,7 +8,7 @@ using namespace std;
 #include "filesys.hpp"
 
 int 
-filesys_ls(int type, string val, string where, vector<string> &results)
+filesys_ls(int type, string val, string where, vector<string> &results, bool addPath)
 {
 	// TODO: FindFirstFileA stuff on windows
 
@@ -16,8 +16,7 @@ filesys_ls(int type, string val, string where, vector<string> &results)
 	struct dirent *ep;
 	int val_n = val.size();
 
-	//dp = opendir(where.c_str());
-	dp = opendir("/Users/andrewl/repos/lwerdna/autils/c");
+	dp = opendir(where.c_str());
 	if(dp == NULL) return -1;
 
 	while((ep = readdir(dp))) {
@@ -34,8 +33,11 @@ filesys_ls(int type, string val, string where, vector<string> &results)
 			string prefix = fileName.substr(0, val_n);
 			if(prefix != val) continue;
 		}
-				
-		results.push_back(fileName);
+		
+		if(addPath)		
+			results.push_back(where + "/" + fileName);
+		else
+			results.push_back(fileName);
 	}
 
 	closedir(dp);

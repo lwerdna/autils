@@ -54,7 +54,7 @@ int main(int ac, char **av)
 		printf("\nlisting all %s/*.c:\n", cwd.c_str());
 		printf("------------------------------------\n");
 		results.clear();
-		if(filesys_ls(AUTILS_FILESYS_LS_EXT, ".c", cwd, results)) {
+		if(filesys_ls(AUTILS_FILESYS_LS_EXT, ".c", cwd, results, true)) {
 			printf("ERROR! ls()\n");
 			goto cleanup;
 		}
@@ -177,8 +177,6 @@ int main(int ac, char **av)
 			}
 		}
 	}
-
-	
 
 	printf("done\n");
 
