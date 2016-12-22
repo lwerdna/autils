@@ -4,12 +4,12 @@ CPPFLAGS += $(FLAGS_DEBUG) -std=c++11
 
 all: libautils.a test
 
-libautils.a: output.o parsing.o bytes.o subprocess.o filesys.o filesys_cpp.o crc.o base64.o Makefile
+libautils.a: output.o parsing.o bytes.o subprocess.o filesys.o filesys_cpp.o crc.o base64.o misc.o Makefile
 	if [ -a libautils.a ]; \
 		then \
 	rm libautils.a; \
 	fi;
-	ar -r libautils.a output.o parsing.o bytes.o subprocess.o filesys.o filesys_cpp.o crc.o base64.o
+	ar -r libautils.a output.o parsing.o bytes.o subprocess.o filesys.o filesys_cpp.o crc.o base64.o misc.o
 
 output.o: output.c
 	gcc $(CFLAGS) -c output.c -o output.o
@@ -28,6 +28,9 @@ filesys.o: filesys.c
 
 filesys_cpp.o: filesys.cpp
 	g++ $(CPPFLAGS) -c filesys.cpp -o filesys_cpp.o
+
+misc.o: misc.cpp
+	g++ $(CPPFLAGS) -c misc.cpp -o misc.o
 
 crc.o: crc.c
 	gcc $(CFLAGS) -c crc.c -o crc.o

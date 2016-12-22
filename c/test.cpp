@@ -14,6 +14,7 @@ extern "C"
 #include "subprocess.h"
 }
 #include "filesys.hpp"
+#include "misc.hpp"
 
 int main(int ac, char **av)
 {
@@ -22,6 +23,15 @@ int main(int ac, char **av)
 	if(ac <= 1) {
 		printf("eg: %s subprocess\n", av[0]);
 		goto cleanup;
+	}
+
+	/*************************************************************************/
+	/* test misc */
+	/*************************************************************************/
+	if(!strcmp(av[1], "misc")) {
+		string ver;
+		misc_get_py_ver(ver);
+		printf("python version: %s\n", ver.c_str());
 	}
 
 	/*************************************************************************/
