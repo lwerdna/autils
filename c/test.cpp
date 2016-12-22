@@ -13,6 +13,7 @@ extern "C"
 {
 #include "subprocess.h"
 }
+#include "filesys.hpp"
 
 int main(int ac, char **av)
 {
@@ -21,6 +22,38 @@ int main(int ac, char **av)
 	if(ac <= 1) {
 		printf("eg: %s subprocess\n", av[0]);
 		goto cleanup;
+	}
+
+	/*************************************************************************/
+	/* test filesys */
+	/*************************************************************************/
+	if(!strcmp(av[1], "filesys")) {
+		vector<string> results;
+		string cwd;
+		filesys_cwd(cwd);
+
+		printf("listing all %s/*.c:\n", cwd.c_str());
+
+		if(filesys_ls(AUTILS_FILESYS_LS_EXT, ".c", cwd, results)) {
+			printf("ERROR! ls()\n");
+			goto cleanup;
+		}
+
+		for(auto i=results.begin(); i!=results.end(); ++i)
+			printf("%s\n", i->c_str());
+
+		printf("listing all %s/*.cpp:\n", cwd.c_str());
+
+		results.clear();
+
+		if(filesys_ls(AUTILS_FILESYS_LS_EXT, ".cpp", cwd, results)) {
+			printf("ERROR! ls()\n");
+			goto cleanup;
+		}
+
+		for(auto i=results.begin(); i!=results.end(); ++i)
+			printf("%s\n", i->c_str());
+	
 	}
 
 	/*************************************************************************/
@@ -50,40 +83,6 @@ int main(int ac, char **av)
 		}
 			
 		printf("full launch (2/2), python version is: %s\n", buf_stderr);
-
-		if(0 != launch_ex(
-			zone, // "yes"
-			zargv, // {"yes", NULL}
-			NULL, // child pid (don't care)
-			NULL, // child stdin (don't care)
-		    &child_stdout, // child stdout
-			NULL // child stderr (don't care)
-		)) {
-			printf("ERROR! launch_ex()\n");
-			goto cleanup;
-		}
-
-		printf("reading 100 bytes from continuous output stream of \"yes\"\n");
-		for(int i=0; i<100; ++i) {
-			int rc;
-			char buf;
-			rc = read(child_stdout, &buf, 1);
-			switch(rc) {
-				case -1:
-				printf("ERROR! read()\n"); goto cleanup;
-				case 0:
-				printf("ERROR! eof reaches on yes?!\n"); goto cleanup;
-				case 1:
-					printf("0x%02X", buf);
-					if(!isspace(buf)) printf("('%c') ", buf);
-					else printf(" ");
-					break;
-				default:
-				printf("ERROR! read() returned unexpected %d\n", rc);
-			}
-		}	
-
-		printf("\n");
 
 		close(child_stdout);
 	}
@@ -151,7 +150,7 @@ int main(int ac, char **av)
 		}
 	}
 
-	while(1);
+	
 
 	printf("done\n");
 
