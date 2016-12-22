@@ -32,28 +32,46 @@ int main(int ac, char **av)
 		string cwd;
 		filesys_cwd(cwd);
 
-		printf("listing all %s/*.c:\n", cwd.c_str());
+		printf("listing all %s/*\n", cwd.c_str());
+		printf("------------------------------------\n");
+		if(filesys_ls(AUTILS_FILESYS_LS_ANY, "", cwd, results)) {
+			printf("ERROR! ls()\n");
+			goto cleanup;
+		}
+		for(auto i=results.begin(); i!=results.end(); ++i)
+			printf("%s\n", i->c_str());
 
+		printf("\nlisting all %s/*.c:\n", cwd.c_str());
+		printf("------------------------------------\n");
+		results.clear();
 		if(filesys_ls(AUTILS_FILESYS_LS_EXT, ".c", cwd, results)) {
 			printf("ERROR! ls()\n");
 			goto cleanup;
 		}
-
 		for(auto i=results.begin(); i!=results.end(); ++i)
 			printf("%s\n", i->c_str());
 
-		printf("listing all %s/*.cpp:\n", cwd.c_str());
-
+		printf("\nlisting all %s/*.cpp:\n", cwd.c_str());
+		printf("------------------------------------\n");
 		results.clear();
-
 		if(filesys_ls(AUTILS_FILESYS_LS_EXT, ".cpp", cwd, results)) {
 			printf("ERROR! ls()\n");
 			goto cleanup;
 		}
-
 		for(auto i=results.begin(); i!=results.end(); ++i)
 			printf("%s\n", i->c_str());
-	
+
+		printf("\nlisting all %s/test*:\n", cwd.c_str());
+		printf("------------------------------------\n");
+		results.clear();
+		if(filesys_ls(AUTILS_FILESYS_LS_STARTSWITH, "test", cwd, results)) {
+			printf("ERROR! ls()\n");
+			goto cleanup;
+		}
+		for(auto i=results.begin(); i!=results.end(); ++i)
+			printf("%s\n", i->c_str());
+
+		printf("\n");
 	}
 
 	/*************************************************************************/
