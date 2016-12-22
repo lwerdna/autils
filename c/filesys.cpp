@@ -56,3 +56,25 @@ filesys_cwd(string &result)
 
 	return 0;
 }
+
+int
+filesys_basename(string path, string &result)
+{
+	char buf[PATH_MAX];
+	int len = path.size();
+	if(len >= PATH_MAX) return -1;
+	strcpy(buf, path.c_str());
+	if(strlen(buf) != len) return -1;
+	
+	for(int i=len-1; i>=0; --i) {
+		/* if slash, return everything after */
+		if(buf[i] == '/' || buf[i] == '\\') {
+			result = buf+i+1;
+			return 0;
+		}
+	}
+
+	/* if no slashes found, return the whole string */
+	result = buf;
+	return 0;			
+}

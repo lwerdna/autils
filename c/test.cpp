@@ -58,8 +58,11 @@ int main(int ac, char **av)
 			printf("ERROR! ls()\n");
 			goto cleanup;
 		}
-		for(auto i=results.begin(); i!=results.end(); ++i)
-			printf("%s\n", i->c_str());
+		for(auto i=results.begin(); i!=results.end(); ++i) {
+			string basename;
+			filesys_basename(*i, basename);
+			printf("%s (basename: %s)\n", i->c_str(), basename.c_str());
+		}
 
 		printf("\nlisting all %s/*.cpp:\n", cwd.c_str());
 		printf("------------------------------------\n");
@@ -78,8 +81,11 @@ int main(int ac, char **av)
 			printf("ERROR! ls()\n");
 			goto cleanup;
 		}
-		for(auto i=results.begin(); i!=results.end(); ++i)
-			printf("%s\n", i->c_str());
+		for(auto i=results.begin(); i!=results.end(); ++i) {
+			string basename;
+			filesys_basename(*i, basename);
+			printf("%s (basename: %s)\n", i->c_str(), basename.c_str());
+		}
 
 		printf("\n");
 	}
