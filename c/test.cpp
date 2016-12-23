@@ -45,7 +45,7 @@ int main(int ac, char **av)
 		printf("listing all %s/*\n", cwd.c_str());
 		printf("------------------------------------\n");
 		if(filesys_ls(AUTILS_FILESYS_LS_ANY, "", cwd, results)) {
-			printf("ERROR! ls()\n");
+			printf("ERROR: ls()\n");
 			goto cleanup;
 		}
 		for(auto i=results.begin(); i!=results.end(); ++i)
@@ -55,7 +55,7 @@ int main(int ac, char **av)
 		printf("------------------------------------\n");
 		results.clear();
 		if(filesys_ls(AUTILS_FILESYS_LS_EXT, ".c", cwd, results, true)) {
-			printf("ERROR! ls()\n");
+			printf("ERROR: ls()\n");
 			goto cleanup;
 		}
 		for(auto i=results.begin(); i!=results.end(); ++i) {
@@ -68,7 +68,7 @@ int main(int ac, char **av)
 		printf("------------------------------------\n");
 		results.clear();
 		if(filesys_ls(AUTILS_FILESYS_LS_EXT, ".cpp", cwd, results)) {
-			printf("ERROR! ls()\n");
+			printf("ERROR: ls()\n");
 			goto cleanup;
 		}
 		for(auto i=results.begin(); i!=results.end(); ++i)
@@ -78,7 +78,7 @@ int main(int ac, char **av)
 		printf("------------------------------------\n");
 		results.clear();
 		if(filesys_ls(AUTILS_FILESYS_LS_STARTSWITH, "test", cwd, results)) {
-			printf("ERROR! ls()\n");
+			printf("ERROR: ls()\n");
 			goto cleanup;
 		}
 		for(auto i=results.begin(); i!=results.end(); ++i) {
@@ -105,14 +105,14 @@ int main(int ac, char **av)
 		char buf_stdout[64], buf_stderr[64];
 
 		if(0 != launch(one, argv, &rc, buf_stdout, 64, buf_stderr, 64)) {
-			printf("ERROR! launch()\n");
+			printf("ERROR: launch()\n");
 			goto cleanup;
 		}
 
 		printf("full launch (1/2), python version is: %s\n", buf_stderr);
 
 		if(0 != launch(one, argv, &rc, buf_stdout, 64, buf_stderr, 64)) {
-			printf("ERROR! launch()\n");
+			printf("ERROR: launch()\n");
 			goto cleanup;
 		}
 			
@@ -141,7 +141,7 @@ int main(int ac, char **av)
 			    &child_stdout, // child stdout
 				NULL // child stderr (don't care)
 			)) {
-				printf("ERROR! launch_ex()\n");
+				printf("ERROR: launch_ex()\n");
 				goto cleanup;
 			}
 
@@ -154,16 +154,16 @@ int main(int ac, char **av)
 				rc = read(child_stdout, &buf, 1);
 				switch(rc) {
 					case -1:
-					printf("ERROR! read()\n"); goto cleanup;
+					printf("ERROR: read()\n"); goto cleanup;
 					case 0:
-					printf("ERROR! eof reaches on yes?!\n"); goto cleanup;
+					printf("ERROR: eof reaches on yes?!\n"); goto cleanup;
 					case 1:
 						printf("0x%02X", buf);
 						if(!isspace(buf)) printf("('%c') ", buf);
 						else printf(" ");
 						break;
 					default:
-					printf("ERROR! read() returned unexpected %d\n", rc);
+					printf("ERROR: read() returned unexpected %d\n", rc);
 				}
 			}
 			printf("\n");
@@ -183,6 +183,27 @@ int main(int ac, char **av)
 			}
 		}
 	}
+
+	/*************************************************************************/
+	/* test subprocess (stress test again!) */
+	/*************************************************************************/
+	if(!strcmp(av[1], "subprocess3")) {	
+		char one[] = "python";
+		char two[] = "--help";
+		char *argv[3] = {one, two, NULL};
+		char buf_stdout[4], buf_stderr[4];
+
+		for(int i=0; i<100; ++i) {
+			if(0 != launch(one, argv, &rc, buf_stdout, 4, buf_stderr, 4)) {
+				printf("ERROR: launch()\n");
+				goto cleanup;
+			}
+
+			buf_stdout[3] = buf_stderr[3] = '\0';
+			printf("launch %d: stdout=%s... stderr=%s...\n",
+				i, buf_stdout, buf_stderr);
+		}
+	}	
 
 	printf("done\n");
 

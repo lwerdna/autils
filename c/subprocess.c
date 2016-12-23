@@ -2,6 +2,7 @@
 #include <unistd.h> // for execve()
 #include <sys/wait.h> // for wait(), waitpid()
 #include <signal.h> // kill()
+#include <errno.h>
 
 // TODO: figure this out for windoze
 
@@ -44,7 +45,7 @@ launch_ex(char *exec_name, char *argv[], pid_t *child_pid_out, int *child_stdin,
     /* fork */
     child_pid = fork();
     if(child_pid == -1) {
-        //printf("ERROR: fork()\n");
+        printf("ERROR: fork()\n");
         goto cleanup;
     }
 
@@ -58,11 +59,8 @@ launch_ex(char *exec_name, char *argv[], pid_t *child_pid_out, int *child_stdin,
 
         /* duplicate the down rx pipe onto stdin */
         i = dup2(fds_down[0], STDIN_FILENO);
-        if(i >= 0) {
-            //printf("dup2() on STDIN returned: %d\n", i);
-        } 
-        else {
-            //perror("dup2()");
+        if(i < 0) {
+            printf("ERROR: dup2()\n");
             goto cleanup;
         }
 
@@ -127,6 +125,7 @@ launch(char *exec_name, char *argv[], int *ret_code, char *buf_stdout,
     int pid, in=-1, out=-1, err=-1, stat;
 
     if(0 != launch_ex(exec_name, argv, &pid, &in, &out, &err)) {
+		printf("ERROR: launch_ex()\n");
         goto cleanup;
     }
 
@@ -135,14 +134,27 @@ launch(char *exec_name, char *argv[], int *ret_code, char *buf_stdout,
     if(buf_stderr) read(err, buf_stderr, buf_stderr_sz);
 
 	if(0 != kill(pid, SIGTERM)) {
+		printf("ERROR: kill()\n");
 		goto cleanup;
 	}
 
-    if(waitpid(pid, &stat, 0) != pid) {
-        goto cleanup;
-    }
+	while(1) {
+	    if(pid == waitpid(pid, &stat, 0)) {
+			 break;
+		}
+		else
+		if(errno == EINTR) {
+			/* happens with lldb attached */
+			printf("restarting waitpid()\n");
+			continue;
+		}
+		else {
+			printf("ERROR: waitpid()\n");
+			perror("");
+		    goto cleanup;
+		}
+	}
 
-    //printf("subprocess returned %d\n", stat);
     if(ret_code) {
 		*ret_code = WEXITSTATUS(stat);
 	}
