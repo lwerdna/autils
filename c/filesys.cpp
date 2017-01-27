@@ -1,5 +1,10 @@
 #include <dirent.h>
 #include <unistd.h> // getcwd()
+#include <stdio.h>
+#include <stdlib.h>
+
+#include <sys/stat.h>
+#include <sys/types.h>
 
 #include <vector>
 #include <string>
@@ -78,3 +83,70 @@ filesys_basename(string path, string &result)
 	result = buf;
 	return 0;			
 }
+
+int 
+filesys_copy(string src, string dst, string& err)
+{
+	int rc = -1;
+	long left;
+	unsigned char buf[4096];
+	FILE *fpsrc=NULL, *fpdst=NULL;
+
+	fpsrc = fopen(src.c_str(), "r");
+	if(!fpsrc) {
+		err = "couldn't open source";
+		goto cleanup;
+	}
+
+	fseek(fpsrc, 0, SEEK_END);
+	left = ftell(fpsrc);
+	rewind(fpsrc);
+
+	fpdst = fopen(dst.c_str(), "wb");
+	if(!fpdst) {
+		err = "couldn't open destination";
+		goto cleanup;
+	}
+
+	while(left) {
+		/* chunk = min(remaining, buffer) */
+		int chunk = sizeof(buf);
+		if(left < sizeof(buf))
+			chunk = left;
+
+		/* read/write */
+		if(fread(buf, chunk, 1, fpsrc) != 1) {
+			err = "fread() didn't read all requested bytes";
+			goto cleanup;
+		}
+
+		if(fwrite(buf, chunk, 1, fpdst) != 1) {
+			err = "fwrite() didn't write all requested bytes";
+			goto cleanup;
+		}
+
+		left -= chunk;
+	}
+
+	/* owner, permissions */
+	struct stat fst;
+	fstat(fileno(fpsrc), &fst);
+	fchown(fileno(fpdst), fst.st_uid, fst.st_gid);
+	fchmod(fileno(fpdst), fst.st_mode);
+
+	rc = 0;
+
+	cleanup:
+	if(fpsrc) {
+		fclose(fpsrc);
+		fpsrc = NULL;
+	}
+	if(fpdst) {
+		fclose(fpdst);
+		fpdst = NULL;
+	}
+
+	return rc;
+}
+
+

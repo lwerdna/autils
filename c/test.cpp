@@ -87,6 +87,15 @@ int main(int ac, char **av)
 			printf("%s (basename: %s)\n", i->c_str(), basename.c_str());
 		}
 
+		printf("\ncopying %s/test to %s/test_copy:\n", cwd.c_str(), cwd.c_str());
+		printf("------------------------------------\n");
+		results.clear();
+		string err;
+		if(filesys_copy("test", "test_copy", err)) {
+			printf("ERROR: %s\n", err.c_str());
+			goto cleanup;
+		}
+
 		printf("\n");
 	}
 
