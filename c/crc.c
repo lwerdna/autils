@@ -1,3 +1,5 @@
+#include <stdio.h>
+
 /*-
  *  COPYRIGHT (C) 1986 Gary S. Brown.  You may use this program, or
  *  code or tables extracted from it, as desired without restriction.
@@ -43,6 +45,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+/* this is CRC-32 used in Ethernet, PKZIP, Gzip, etc. with 
+	polynomial 0xEDB88320 */
 static uint32_t crc32_tab[] = {
 	0x00000000, 0x77073096, 0xee0e612c, 0x990951ba, 0x076dc419, 0x706af48f,
 	0xe963a535, 0x9e6495a3,	0x0edb8832, 0x79dcb8a4, 0xe0d5e91e, 0x97d2d988,
@@ -103,11 +107,48 @@ crc32(uint32_t crc, const void *buf, size_t size)
 	return crc ^ ~0U;
 }
 
-//#include <stdio.h>
-//#include <string.h>
-//int main(int ac, char **av)
-//{
-//    // should return 0x414FA339
-//    const char *input = "The quick brown fox jumps over the lazy dog";
-//    printf("0x%X\n", crc32(0, input, strlen(input)));
-//}
+int
+crc32_file(char *fpath, uint32_t *result)
+{
+	int rc = -1;
+	long left;
+	uint32_t crc_val;
+	unsigned char buf[4096];
+	FILE *fpsrc=NULL, *fpdst=NULL;
+
+	fpsrc = fopen(fpath, "rb");
+	if(!fpsrc) {
+		goto cleanup;
+	}
+
+	fseek(fpsrc, 0, SEEK_END);
+	left = ftell(fpsrc);
+	rewind(fpsrc);
+
+	while(left) {
+		/* chunk = min(remaining, buffer) */
+		int chunk = sizeof(buf);
+		if(left < sizeof(buf))
+			chunk = left;
+
+		/* read */
+		if(fread(buf, chunk, 1, fpsrc) != 1) {
+			goto cleanup;
+		}
+
+		crc_val = crc32(crc_val, buf, chunk);
+
+		left -= chunk;
+	}
+
+	*result = crc_val;
+	rc = 0;
+
+	cleanup:
+	if(fpsrc) {
+		fclose(fpsrc);
+		fpsrc = NULL;
+	}
+
+	return rc;
+}

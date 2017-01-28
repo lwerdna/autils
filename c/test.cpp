@@ -11,7 +11,9 @@ using namespace std;
 
 extern "C"
 {
+#include "filesys.h"
 #include "subprocess.h"
+#include "crc.h"
 }
 #include "filesys.hpp"
 #include "misc.hpp"
@@ -213,6 +215,28 @@ int main(int ac, char **av)
 				i, buf_stdout, buf_stderr);
 		}
 	}	
+
+	/*************************************************************************/
+	/* test crc */
+	/*************************************************************************/
+	if(!strcmp(av[1], "crc")) {
+		char test_path[] = "crc_test_input";
+
+	    // should return 0x414FA339
+    	const char *input = "The quick brown fox jumps over the lazy dog";
+	    uint32_t result = crc32(0, input, strlen(input));
+	    if(result == 0x414FA339) printf("PASS!\n");
+		else printf("FAIL!\n");
+
+		if(check_file_exists(test_path)) {
+			uint32_t result;
+			if(crc32_file(test_path, &result) != 0 ||
+			  result != 0x414FA339) {
+		    	printf("PASS!\n");
+			}
+			else printf("FAIL!\n");
+		}
+	}
 
 	printf("done\n");
 
