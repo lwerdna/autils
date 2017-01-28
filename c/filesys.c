@@ -3,6 +3,7 @@
 
 #ifdef _WIN32
 #else
+#include <sys/stat.h>
 #include <unistd.h> /* for mkstemp */
 #endif
 
@@ -86,4 +87,10 @@ gen_tmp_file(const char *templ, char *path_out, FILE **fp_out)
     return rc;
 }
 
+int 
+check_file_exists(char *path)
+{
+	struct stat st;
+	return stat(path, &st) == 0;
+}
 
