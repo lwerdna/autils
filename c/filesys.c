@@ -52,22 +52,22 @@ gen_tmp_file(const char *templ, char *path_out, FILE **fp_out)
 
     // find length of suffix
     for(i_XXXXXX=0; i_XXXXXX < strlen(path)-5; i_XXXXXX++) {
-        //printf("at idx=%d looking at: %s\n", i_XXXXXX, path+i_XXXXXX);
+        //debug("at idx=%d looking at: %s\n", i_XXXXXX, path+i_XXXXXX);
         if(0 == strncmp(path+i_XXXXXX, "XXXXXX", 6)) {
             break;
         }
     }
     if(i_XXXXXX >= strlen(path)-5) {
-        //printf("ERROR: couldn't find XXXXXX in \"%s\"\n", path);
+        //debug("ERROR: couldn't find XXXXXX in \"%s\"\n", path);
         goto cleanup;
     }
 
     suffix_len = strlen(path) - (i_XXXXXX+6);
 
-    //printf("sending mkstemp \"%s\" with suffix length %d\n", path, suffix_len);
+    //debug("sending mkstemp \"%s\" with suffix length %d\n", path, suffix_len);
     fd = mkstemps(path, suffix_len);
     if(fd < 0) {
-        //printf("ERROR: mkstemp() returned %d\n", fd);
+        //debug("ERROR: mkstemp() returned %d\n", fd);
         goto cleanup;
     }
 
@@ -77,7 +77,7 @@ gen_tmp_file(const char *templ, char *path_out, FILE **fp_out)
         convert this to stdlib file pointer */
     *fp_out = fdopen(fd, "w");
     if(*fp_out == NULL) {
-        //printf("ERROR: fdopen()\n");
+        //debug("ERROR: fdopen()\n");
         goto cleanup;
     }
 #endif

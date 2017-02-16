@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "bytes.h"
+#include "debug.h"
 
 /* convert ["AB", "CD", "EF", "12", ...] -> "\xAB\xCD\xEF\x12..." */
 int parse_byte_list(char **str_bytes, unsigned int n_bytes, uint8_t *result)
@@ -58,8 +59,8 @@ int parse_addr_range(int ac, char **av, uintptr_t *addr, unsigned int *len)
         *len = 4;
     }
 
-    //printf("parsed address: 0x%p\n", *addr);
-    //printf("parsed length: 0x%08X\n", *len);
+    //debug("parsed address: 0x%p\n", *addr);
+    //debug("parsed length: 0x%08X\n", *len);
 
     return rc;
 }
@@ -79,12 +80,12 @@ int parse_addr_bytelist(int ac, char **av, uintptr_t *addr, uint8_t *bytes)
     if(ac >= 4 && !parse_byte_list(av+3, ac-3, bytes)) {
         rc = 0;
 
-        //printf("parsed address: 0x%X\n", *addr);
-        //printf("parsed bytes: ");
+        //debug("parsed address: 0x%X\n", *addr);
+        //debug("parsed bytes: ");
         for(i=0; i<(ac-3); ++i) {
-            printf("%02X ", bytes[i] & 0xFF);
+            debug("%02X ", bytes[i] & 0xFF);
         }
-        printf("\n");
+        debug("\n");
     }
 
     cleanup:
@@ -171,7 +172,7 @@ parse_mac(char *mac, unsigned char *bytes)
 
     if(strlen(mac) != (2*6 + 5)) {
         /* note: zu is C99 for size_t */
-        printf("ERROR: expected 17, but strlen(mac)==%zu\n", strlen(mac));
+        debug_err("expected 17, but strlen(mac)==%zu\n", strlen(mac));
         goto cleanup;
     }
 
@@ -179,7 +180,7 @@ parse_mac(char *mac, unsigned char *bytes)
         char *x = mac + loc_seps[i];
 
         if(*x != ':') {
-            printf("ERROR: mac[%d] was not a colon\n", loc_seps[i]);
+            debug_err("mac[%d] was not a colon\n", loc_seps[i]);
             goto cleanup;
         }
 
@@ -188,7 +189,7 @@ parse_mac(char *mac, unsigned char *bytes)
    
     for(i=0; i<6; ++i) {
         if(parse_uint8_hex(mac + loc_bytes[i], bytes+i)) {
-            printf("ERROR: mac[%d] was not a valid byte\n", loc_bytes[i]);
+            debug_err("mac[%d] was not a valid byte\n", loc_bytes[i]);
             goto cleanup;
         }
     }

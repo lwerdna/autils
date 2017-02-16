@@ -14,6 +14,7 @@ extern "C"
 #include "filesys.h"
 #include "subprocess.h"
 #include "crc.h"
+#include "md5.h"
 }
 #include "filesys.hpp"
 #include "misc.hpp"
@@ -236,6 +237,42 @@ int main(int ac, char **av)
 			}
 			else printf("FAIL!\n");
 		}
+	}
+
+	/*************************************************************************/
+	/* test md5 */
+	/*************************************************************************/
+	if(!strcmp(av[1], "md5")) {
+    	const char *str0 = "The quick brown fox jumps over the lazy dog";
+    	const char *str1 = "The quick brown fox jumps over the lazy dog.";
+    	const char *str2 = "";
+    
+    	char hash_str[33];
+    
+//    	/* hash a file specified on the command line
+//    		(and compare the answer with what you get with, say `md5` or `md5sum`) */
+//    	if(ac > 1) {
+//    		char *fpath = av[1];
+//    
+//    		if(md5_file_str(fpath, hash_str)) {
+//    			printf("FAIL!\n");
+//    			goto cleanup;
+//    		}
+//    	
+//    		printf("MD5 (%s) = %s\n", fpath, hash_str);
+//    	}
+    
+    	md5_buf_str((uint8_t *)str0, strlen(str0), hash_str);
+    	printf("MD5(\"%s\") = %s\n", str0, hash_str);
+    	printf("(should be 9e107d9d372bb6826bd81d3542a419d6)\n");
+    
+    	md5_buf_str((uint8_t *)str1, strlen(str1), hash_str);
+    	printf("MD5(\"%s\") = %s\n", str1, hash_str);
+    	printf("(should be e4d909c290d0fb1ca068ffaddf22cbd0)\n");
+    
+    	md5_buf_str((uint8_t *)str2, strlen(str2), hash_str);
+    	printf("MD5(\"%s\") = %s\n", str2, hash_str);
+    	printf("(should be d41d8cd98f00b204e9800998ecf8427e)\n");
 	}
 
 	printf("done\n");

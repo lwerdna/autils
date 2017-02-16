@@ -2,6 +2,8 @@
 #include <stdint.h>
 #include <string.h>
 
+#include "debug.h"
+
 /******************************************************************************
  PARSE/PRINT
 ******************************************************************************/
@@ -24,7 +26,7 @@ parse_nib(char *str, unsigned char *val)
         rc = 0;
     }
     else {
-        printf("ERROR: %s('%c', ...)\n", __func__, c);
+        debug_err("%s('%c', ...)\n", __func__, c);
     }
 
     return rc;
@@ -67,7 +69,7 @@ parse_value_hex(char *str, int limit, uint64_t *result)
     cleanup:
 
     if(rc) {
-        printf("ERROR: %s(\"%s\", ...)\n", __func__, str);
+        debug_err("%s(\"%s\", ...)\n", __func__, str);
     }
 
     return rc;
@@ -80,7 +82,7 @@ parse_uint8_hex(char *str, uint8_t *result)
     uint64_t value;
 
     if(parse_value_hex(str, 2, &value)) {
-        printf("ERROR: %s(\"%s\", ...)\n", __func__, str);
+        debug_err("%s(\"%s\", ...)\n", __func__, str);
         goto cleanup;
     }
 
@@ -98,7 +100,7 @@ parse_uint16_hex(char *str, uint16_t *result)
     uint64_t value;
 
     if(parse_value_hex(str, 4, &value)) {
-        printf("ERROR: %s(\"%s\", ...)\n", __func__, str);
+        debug_err("%s(\"%s\", ...)\n", __func__, str);
         goto cleanup;
     }
 
@@ -116,7 +118,7 @@ parse_uint32_hex(char *str, uint32_t *result)
     uint64_t value;
 
     if(parse_value_hex(str, 8, &value)) {
-        printf("ERROR: %s(\"%s\", ...)\n", __func__, str);
+        debug_err("%s(\"%s\", ...)\n", __func__, str);
         goto cleanup;
     }
 
@@ -134,7 +136,7 @@ parse_uint64_hex(char *str, uint64_t *result)
     uint64_t value;
 
     if(parse_value_hex(str, 16, &value)) {
-        printf("ERROR: %s(\"%s\", ...)\n", __func__, str);
+        debug_err("%s(\"%s\", ...)\n", __func__, str);
         goto cleanup;
     }
 
@@ -158,7 +160,7 @@ parse_uintptr_hex(char *str, uintptr_t *result)
     #endif
 
     if(parse_value_hex(str, 32, &value)) {
-        printf("ERROR: %s(\"%s\", ...)\n", __func__, str);
+        debug_err("%s(\"%s\", ...)\n", __func__, str);
         goto cleanup;
     }
 
