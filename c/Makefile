@@ -1,5 +1,6 @@
 CPPFLAGS += -std=c++11
 
+#--<BOILERPLATE_START>---------------------------------------------------------
 # OS DETECTION -> set compiler, define variable for source files to know
 UNAME_S := $(shell uname -s)
 ifeq ($(UNAME_S),Darwin)
@@ -31,6 +32,7 @@ CFLAGS += -g -O0 -DDEBUG=1
 else
 $(info MAKEFILE RELEASE MODE)
 endif
+#--<BOILERPLATE_END>-----------------------------------------------------------
 
 all: libautils.a test
 

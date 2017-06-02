@@ -3,6 +3,8 @@
 #define AUTILS_FILESYS_LS_STARTSWITH 3
 #define AUTILS_FILESYS_LS_EXEC 4
 
+int filesys_read(string path, string mode, vector<uint8_t> &result, string &error);
+
 int filesys_cwd(string &result);
 
 int filesys_ls(int type, string val, string where, vector<string> &results, bool addPath=false);

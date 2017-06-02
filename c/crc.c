@@ -112,7 +112,7 @@ crc32_file(char *fpath, uint32_t *result)
 {
 	int rc = -1;
 	long left;
-	uint32_t crc_val;
+	uint32_t crc_val = 0;
 	unsigned char buf[4096];
 	FILE *fpsrc=NULL, *fpdst=NULL;
 

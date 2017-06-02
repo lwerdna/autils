@@ -100,6 +100,27 @@ int main(int ac, char **av)
 		}
 
 		printf("\n");
+
+		printf("\nreading a file, comparing CRC:\n");
+		printf("------------------------------------\n");
+		results.clear();
+		char fname[] = "libautils.a";
+		vector<uint8_t> fileGuts;
+		if(filesys_read(fname, "rb", fileGuts, err)) {
+			printf("ERROR: %s\n", err.c_str());
+			goto cleanup;
+		}
+		printf("reading %lu bytes into byte vector\n", fileGuts.size());
+		uint32_t crcA, crcB;
+		crc32_file(fname, &crcA);
+		crcB = crc32(0, &fileGuts[0], fileGuts.size());
+		printf("from file, crc=%08X and from vector, crc=%08X\n", crcA, crcB);
+		if(crcA != crcB) {
+			printf("ERROR: crc's don't match!\n");
+			goto cleanup;
+		}
+
+		printf("\n");
 	}
 
 	/*************************************************************************/

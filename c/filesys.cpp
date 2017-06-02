@@ -12,6 +12,54 @@ using namespace std;
 
 #include "filesys.hpp"
 
+int
+filesys_read(string path, string mode, vector<uint8_t> &result, string &error)
+{
+	int rc = -1;
+	long remaining;
+	unsigned char buf[4096];
+
+	FILE *fp = NULL;
+
+	const char *fpath = path.c_str();
+	const char *fmode = mode.c_str();
+
+	fp = fopen(fpath, fmode);
+	if(!fp) {
+		error = "fopen()";
+		goto cleanup;
+	}
+
+	fseek(fp, 0, SEEK_END);
+	remaining = ftell(fp);
+	rewind(fp);
+
+	result.clear();
+
+	while(remaining) {
+		/* chunkSz = min(remaining, buffer) */
+		int chunkSz = sizeof(buf);
+		if(remaining < sizeof(buf))
+			chunkSz = remaining;
+
+		/* read to buffer */
+		if(fread(buf, chunkSz, 1, fp) != 1) {
+			error = "fread()";
+			goto cleanup;
+		}
+
+		/* append to result */
+		std::copy(buf, buf+chunkSz, std::back_inserter(result));
+
+		remaining -= chunkSz;
+	}
+
+	rc = 0;
+	cleanup:
+	if(fp) fclose(fp);
+	return rc;
+}
+
 int 
 filesys_ls(int type, string val, string where, vector<string> &results, bool addPath)
 {
