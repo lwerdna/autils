@@ -31,6 +31,13 @@ launch_ex(char *exec_name, char *argv[], pid_t *child_pid_out, int *child_stdin,
 	ssize_t n;
 	pid_t child_pid;
 
+	if(0) {
+		printf("%s(%s)\n", __func__, exec_name);
+		printf("argv[0]: \"%s\"\n", argv[0]);
+		printf("argv[1]: \"%s\"\n", argv[1]);
+		printf("argv[2]: \"%s\"\n", argv[2]);
+	}
+
 	/* these fd's used to send commands down to child */
 	int fds_down[2];
 	/* these fd's used to read output from child (he writes up to us) */

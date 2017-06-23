@@ -126,7 +126,7 @@ int main(int ac, char **av)
 	/*************************************************************************/
 	/* test subprocess */
 	/*************************************************************************/
-	if(!strcmp(av[1], "subprocess")) {	
+	if(!strcmp(av[1], "subprocess")) {
 		char one[] = "python";
 		char two[] = "-V";
 		char *argv[3] = {one, two, NULL};
@@ -148,18 +148,18 @@ int main(int ac, char **av)
 			printf("ERROR: launch()\n");
 			goto cleanup;
 		}
-			
+
 		printf("full launch (2/2), python version is: %s\n", buf_stderr);
 
 		close(child_stdout);
 	}
 
 	/*************************************************************************/
-	/* test subprocess (stress test!) 
+	/* test subprocess (stress test!)
 		use ps, task manager, activity monitor, whatever to make sure a ton of
 		yes processes aren't adding up */
 	/*************************************************************************/
-	if(!strcmp(av[1], "subprocess2")) {	
+	if(!strcmp(av[1], "subprocess2")) {
 		char zone[] = "yes";
 		char *zargv[2] = {zone, NULL};
 		int child_stdout, stat;
@@ -200,7 +200,7 @@ int main(int ac, char **av)
 				}
 			}
 			printf("\n");
-		
+
 			close(child_stdout);
 
 			printf("killing...\n");
@@ -209,7 +209,7 @@ int main(int ac, char **av)
 				goto cleanup;
 			}
 
-			printf("waitpid...\n");	
+			printf("waitpid...\n");
 		    if(waitpid(child_pid, &stat, 0) != child_pid) {
 				printf("ERROR: waitpid()\n");
 				goto cleanup;
@@ -220,7 +220,7 @@ int main(int ac, char **av)
 	/*************************************************************************/
 	/* test subprocess (stress test again!) */
 	/*************************************************************************/
-	if(!strcmp(av[1], "subprocess3")) {	
+	if(!strcmp(av[1], "subprocess3")) {
 		char one[] = "python";
 		char two[] = "--help";
 		char *argv[3] = {one, two, NULL};
@@ -236,7 +236,23 @@ int main(int ac, char **av)
 			printf("launch %d: stdout=%s... stderr=%s...\n",
 				i, buf_stdout, buf_stderr);
 		}
-	}	
+	}
+
+	if(!strcmp(av[1], "subprocess4")) {
+		char one[] = "/Users/andrewl/repos/lwerdna/Low-Level-Lab/taggers/hltag_lib.pyc";
+		//char two[] = "/Users/andrewl/repos/lwerdna/Low-Level-Lab/taggers/out.bin";
+		char two[] = "out.bin";
+		char *argv[3] = {one, two, NULL};
+
+		char buf_stdout[100];
+
+		if(0 != launch(one, argv, &rc, buf_stdout, 4, NULL, 0)) {
+			printf("ERROR: launch()\n");
+			goto cleanup;
+		}
+
+		printf("%s returned %d\n", one, rc);
+	}
 
 	/*************************************************************************/
 	/* test crc */
@@ -267,30 +283,30 @@ int main(int ac, char **av)
     	const char *str0 = "The quick brown fox jumps over the lazy dog";
     	const char *str1 = "The quick brown fox jumps over the lazy dog.";
     	const char *str2 = "";
-    
+
     	char hash_str[33];
-    
+
 //    	/* hash a file specified on the command line
 //    		(and compare the answer with what you get with, say `md5` or `md5sum`) */
 //    	if(ac > 1) {
 //    		char *fpath = av[1];
-//    
+//
 //    		if(md5_file_str(fpath, hash_str)) {
 //    			printf("FAIL!\n");
 //    			goto cleanup;
 //    		}
-//    	
+//
 //    		printf("MD5 (%s) = %s\n", fpath, hash_str);
 //    	}
-    
+
     	md5_buf_str((uint8_t *)str0, strlen(str0), hash_str);
     	printf("MD5(\"%s\") = %s\n", str0, hash_str);
     	printf("(should be 9e107d9d372bb6826bd81d3542a419d6)\n");
-    
+
     	md5_buf_str((uint8_t *)str1, strlen(str1), hash_str);
     	printf("MD5(\"%s\") = %s\n", str1, hash_str);
     	printf("(should be e4d909c290d0fb1ca068ffaddf22cbd0)\n");
-    
+
     	md5_buf_str((uint8_t *)str2, strlen(str2), hash_str);
     	printf("MD5(\"%s\") = %s\n", str2, hash_str);
     	printf("(should be d41d8cd98f00b204e9800998ecf8427e)\n");
