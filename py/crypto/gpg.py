@@ -22,7 +22,7 @@
 # trying to use RFC4880 "OpenPGP Message Format" to read
 # "ASCII Armor" (Base64 encoding) OpenPGP message data (packet type 3)
 # eg: 
-# $ gpg2 -z 0 -a --output test.bin --symmetric test.txt
+# $ gpg2 -z 0 -a --output test.txt.gpg --symmetric test.txt
 # where "-z 0" turns off compression, "-a" uses base64 encoding
 # $ 
 # $ gpg2 --list-packets ./test.bin
@@ -519,7 +519,7 @@ def decrypt_cfb(ctext, key):
 	#print repr(FR)
 	#print repr(FRE)
 	random = dataXor(ctext[0:0+8], FRE)
-	#print "random: " + random.encode('hex')
+	print "random: " + random.encode('hex')
 
 	FR = ctext[0:0+8]
 	FRE = cast128_encrypt_block(FR, key)
@@ -707,5 +707,10 @@ if __name__ == "__main__":
 		fp.close()
 
 		print "ptext: " + ptext.encode('hex')
-		p9sub = packetBroker(ptext)
-		print p9sub
+		subPacket = packetBroker(ptext)
+		print subPacket
+
+		if isinstance(subPacket, PgpPacket11):
+			fp = open('packet11.gpg', 'wb')
+			fp.write(ptext)
+			fp.close()
