@@ -653,4 +653,63 @@ function bytesToString(bytes) {
     return r;
 }
 
+/******************************************************************************
+    KEY DERIVATION
+ *****************************************************************************/
+
+/* password-based key derivation function 2 
+    from RSA Lab's Public-Key Cryptography Standards, PKCS #5 v.20
+    also published in RFC 2898
+
+    hLen is hash length (number of octets)
+    with sha256, hLen == 32 octets of output (32*8 = 256)
+    with aes256, dkLen == 32 octets of key material
+
+    iteration count minimum 1000
+    salt should be at least eight octets (64 bits)
+*/
+function PBKDF2(prf, pw, salt, n_iterations, dkLen)
+{
+    /* derived key */
+    var DK = []
+
+    /* hash length is 20 for sha1 */
+    hLen = 20
+
+    /* number of hash outputs needed to fill dkLen */
+    n_prfs = Math.ceil(dkLen / hLen)
+
+    for(var i = 1; i <= n_prfs; ++i) {
+        DK = DK.concat( PBKDF2_F(pw, salt, n_iterations, i) )
+    }
+
+    return DK.slice(0, dkLen)
+}
+
+function PBKDF2_F(pw, salt, n_iterations, idx)
+{
+    var temp
+
+    /* idx is used only to append 4-bytes to the end of the salt */
+    var INT_i = [ (idx & 0xFF000000) >>> 24, (idx & 0xFF0000) >>> 16, (idx & 0xFF00) >>> 8, idx & 0xFF ]
+
+    /* the password is the HMAC key, the salt and 4-bytes are the HMAC message */
+    /* compute U_1 */
+    temp = salt.concat(INT_i)
+    var U_curr = HMAC_SHA1(pw, temp)
+
+    /* result is initially U_1 */
+    var result = U_curr.slice()
+
+    /* and we iterate, computing U_2, U_3, ..., U_{n_iterations} */
+    for(var i=2; i <= n_iterations; ++i) {
+        temp = U_curr
+        U_curr = HMAC_SHA1(pw, U_curr)
+
+        temp = result
+        result = array_xor(temp, U_curr)
+    }
+
+    return result
+}
 
