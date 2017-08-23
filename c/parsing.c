@@ -5,6 +5,46 @@
 #include "bytes.h"
 #include "debug.h"
 
+/* convert ["11011110", "1010110110", "11111011101", "111"] -> "\xDE\xAD\xBE\xEF" */
+int parse_bit_list(char **str_bits, unsigned int n_bitstrs, uint8_t *result)
+{
+    int i, j, total_bytes, rc=-1;
+	uint64_t temp = 0;
+
+	total_bytes = 0;
+	for(i=0; i<n_bitstrs; ++i)
+		total_bytes += strlen(str_bits[i]);
+	total_bytes = (total_bytes + 7)/8;
+
+	if(total_bytes > sizeof(temp))
+		goto cleanup;
+
+    for(i=0; i<n_bitstrs; ++i) {
+		int len = strlen(str_bits[i]);
+		for(j=0; j<len; ++j) {
+			temp <<= 1;
+			switch(str_bits[i][j]) {
+				case '0':
+					break;
+				case '1':
+					temp |= 1;
+					break;
+				default:
+					goto cleanup;
+			}
+		}
+    }
+
+	for(i=total_bytes-1; i>=0; --i) {
+		result[total_bytes-i-1] = (temp >> 8*i) & 0xFF;
+	}
+
+    rc = 0;
+
+    cleanup:
+    return rc;
+}
+
 /* convert ["AB", "CD", "EF", "12", ...] -> "\xAB\xCD\xEF\x12..." */
 int parse_byte_list(char **str_bytes, unsigned int n_bytes, uint8_t *result)
 {

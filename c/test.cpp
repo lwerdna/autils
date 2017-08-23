@@ -15,6 +15,8 @@ extern "C"
 #include "subprocess.h"
 #include "crc.h"
 #include "md5.h"
+#include "parsing.h"
+#include "output.h"
 }
 #include "filesys.hpp"
 #include "misc.hpp"
@@ -26,6 +28,62 @@ int main(int ac, char **av)
 	if(ac <= 1) {
 		printf("eg: %s subprocess\n", av[0]);
 		goto cleanup;
+	}
+
+	/*************************************************************************/
+	/* test parsing */
+	/*************************************************************************/
+	if(!strcmp(av[1], "parsing")) {
+		uint8_t result[4];
+		char *bits1[4] = {"11", "0", "1", "1110"};
+		char *bits2[4] = {"11", "0111", "1010", "101101"};
+		char *bits3[4] = {"1", "1011", "1101010110110111", "110"};
+		char *bits4[4] = {"11011110", "1010110110", "11111011101", "111"};
+
+		memset(result, '\x00', sizeof(result));
+		if(0 != parse_bit_list(bits4, 4, result)) {
+			printf("ERROR: parse_bit_list() returned nonzero\n");
+			goto cleanup;
+		}
+		dump_bytes(result, 4, 0);
+		if(memcmp(result, "\xde\xad\xbe\xef", 4)) {
+			printf("ERROR: parse_bit_list() did not parse correctly\n");
+			goto cleanup;
+		}
+
+		memset(result, '\x00', sizeof(result));
+		if(0 != parse_bit_list(bits3, 4, result)) {
+			printf("ERROR: parse_bit_list() returned nonzero\n");
+			goto cleanup;
+		}
+		dump_bytes(result, 4, 0);
+		if(memcmp(result, "\xde\xad\xbe", 3)) {
+			printf("ERROR: parse_bit_list() did not parse correctly\n");
+			goto cleanup;
+		}
+
+		memset(result, '\x00', sizeof(result));
+		if(0 != parse_bit_list(bits2, 4, result)) {
+			printf("ERROR: parse_bit_list() returned nonzero\n");
+			goto cleanup;
+		}
+		dump_bytes(result, 4, 0);
+		if(memcmp(result, "\xde\xad", 2)) {
+			printf("ERROR: parse_bit_list() did not parse correctly\n");
+			goto cleanup;
+		}
+
+		memset(result, '\x00', sizeof(result));
+		if(0 != parse_bit_list(bits1, 4, result)) {
+			printf("ERROR: parse_bit_list() returned nonzero\n");
+			goto cleanup;
+		}
+		dump_bytes(result, 4, 0);
+		if(memcmp(result, "\xde", 1)) {
+			printf("ERROR: parse_bit_list() did not parse correctly\n");
+			goto cleanup;
+		}
+
 	}
 
 	/*************************************************************************/
@@ -137,14 +195,14 @@ int main(int ac, char **av)
 
 		char buf_stdout[64], buf_stderr[64];
 
-		if(0 != launch(one, argv, &rc, buf_stdout, 64, buf_stderr, 64)) {
+		if(0 != launch(one, argv, &rc, buf_stdout, 64, buf_stderr, 64, 0)) {
 			printf("ERROR: launch()\n");
 			goto cleanup;
 		}
 
 		printf("full launch (1/2), python version is: %s\n", buf_stderr);
 
-		if(0 != launch(one, argv, &rc, buf_stdout, 64, buf_stderr, 64)) {
+		if(0 != launch(one, argv, &rc, buf_stdout, 64, buf_stderr, 64, 0)) {
 			printf("ERROR: launch()\n");
 			goto cleanup;
 		}
@@ -227,7 +285,7 @@ int main(int ac, char **av)
 		char buf_stdout[4], buf_stderr[4];
 
 		for(int i=0; i<100; ++i) {
-			if(0 != launch(one, argv, &rc, buf_stdout, 4, buf_stderr, 4)) {
+			if(0 != launch(one, argv, &rc, buf_stdout, 4, buf_stderr, 4, 0)) {
 				printf("ERROR: launch()\n");
 				goto cleanup;
 			}
@@ -246,7 +304,7 @@ int main(int ac, char **av)
 
 		char buf_stdout[100];
 
-		if(0 != launch(one, argv, &rc, buf_stdout, 4, NULL, 0)) {
+		if(0 != launch(one, argv, &rc, buf_stdout, 4, NULL, 0, 0)) {
 			printf("ERROR: launch()\n");
 			goto cleanup;
 		}
