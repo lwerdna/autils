@@ -5,6 +5,7 @@
 
 import os
 import sys
+from binascii import hexlify
 from base64 import b64encode
 from cast128 import cast128_encrypt_block
 from struct import pack
@@ -123,12 +124,15 @@ if __name__ == '__main__':
 	if g_ascii_armor:
 		data = pkt3 + pkt9
 		csum = crc24(data)
+		print 'csum: %08X' % csum
 		csum_bytes = pack('>I', csum)[1:]
+		print 'csum_bytes: ' + hexlify(csum_bytes)
+		csum_b64 = b64encode(csum_bytes)
 
 		fp = open(g_outfile, 'w')
 		fp.write('-----BEGIN PGP MESSAGE-----\n\n')
 		fp.write(b64encode(data) + '\n')
-		fp.write('=' + b64encode(csum_bytes) + '\n')
+		fp.write('=%s\n' % csum_b64)
 		fp.write('-----END PGP MESSAGE-----\n')
 		fp.close()
 
