@@ -136,10 +136,6 @@ launch(char *exec_name, char *argv[], int *ret_code, char *buf_stdout,
 		goto cleanup;
 	}
 
-	/* if caller wanted output, read it */
-	if(buf_stdout) read(out, buf_stdout, buf_stdout_sz);
-	if(buf_stderr) read(err, buf_stderr, buf_stderr_sz);
-
 	while(do_wait) {
 		if(pid == waitpid(pid, &stat, 0)) {
 			 break;
@@ -155,6 +151,11 @@ launch(char *exec_name, char *argv[], int *ret_code, char *buf_stdout,
 			goto cleanup;
 		}
 	}
+
+	/* if caller wanted output, read it */
+	if(buf_stdout) read(out, buf_stdout, buf_stdout_sz);
+	if(buf_stderr) read(err, buf_stderr, buf_stderr_sz);
+
 
 	if(ret_code) {
 		*ret_code = WEXITSTATUS(stat);
