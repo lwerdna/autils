@@ -11,15 +11,16 @@ using namespace std;
 
 extern "C"
 {
-#include "filesys.h"
-#include "subprocess.h"
 #include "crc.h"
 #include "md5.h"
-#include "parsing.h"
+#include "bytes.h"
 #include "output.h"
+#include "parsing.h"
+#include "filesys.h"
+#include "subprocess.h"
 }
-#include "filesys.hpp"
 #include "misc.hpp"
+#include "filesys.hpp"
 
 int main(int ac, char **av)
 {
@@ -39,51 +40,53 @@ int main(int ac, char **av)
 		char *bits2[4] = {"11", "0111", "1010", "101101"};
 		char *bits3[4] = {"1", "1011", "1101010110110111", "110"};
 		char *bits4[4] = {"11011110", "1010110110", "11111011101", "111"};
-
+		// bits -> 4 bytes
 		memset(result, '\x00', sizeof(result));
-		if(0 != parse_bit_list(bits4, 4, result)) {
-			printf("ERROR: parse_bit_list() returned nonzero\n");
-			goto cleanup;
-		}
+		if(0 != parse_bit_list(bits4, 4, result)) goto cleanup;
 		dump_bytes(result, 4, 0);
-		if(memcmp(result, "\xde\xad\xbe\xef", 4)) {
-			printf("ERROR: parse_bit_list() did not parse correctly\n");
-			goto cleanup;
-		}
-
+		if(memcmp(result, "\xde\xad\xbe\xef", 4)) goto cleanup;
+		// bits -> 3 bytes
 		memset(result, '\x00', sizeof(result));
-		if(0 != parse_bit_list(bits3, 4, result)) {
-			printf("ERROR: parse_bit_list() returned nonzero\n");
-			goto cleanup;
-		}
+		if(0 != parse_bit_list(bits3, 4, result)) goto cleanup;
 		dump_bytes(result, 4, 0);
-		if(memcmp(result, "\xde\xad\xbe", 3)) {
-			printf("ERROR: parse_bit_list() did not parse correctly\n");
-			goto cleanup;
-		}
-
+		if(memcmp(result, "\xde\xad\xbe", 3)) goto cleanup;
+		// bits -> 2 bytes
 		memset(result, '\x00', sizeof(result));
-		if(0 != parse_bit_list(bits2, 4, result)) {
-			printf("ERROR: parse_bit_list() returned nonzero\n");
-			goto cleanup;
-		}
+		if(0 != parse_bit_list(bits2, 4, result)) goto cleanup;
 		dump_bytes(result, 4, 0);
-		if(memcmp(result, "\xde\xad", 2)) {
-			printf("ERROR: parse_bit_list() did not parse correctly\n");
-			goto cleanup;
-		}
-
+		if(memcmp(result, "\xde\xad", 2)) goto cleanup;
+		// bits -> 1 byte
 		memset(result, '\x00', sizeof(result));
-		if(0 != parse_bit_list(bits1, 4, result)) {
-			printf("ERROR: parse_bit_list() returned nonzero\n");
-			goto cleanup;
-		}
+		if(0 != parse_bit_list(bits1, 4, result)) goto cleanup;
 		dump_bytes(result, 4, 0);
-		if(memcmp(result, "\xde", 1)) {
-			printf("ERROR: parse_bit_list() did not parse correctly\n");
-			goto cleanup;
-		}
+		if(memcmp(result, "\xde", 1)) goto cleanup;
+		printf("TESTS PASSED!\n");
+	}
 
+	/*************************************************************************/
+	/* test endian */
+	/*************************************************************************/
+	if(!strcmp(av[1], "endian")) {
+		// swaps
+		uint8_t buf[8];
+		if(0xDEAD != bswap16(0xADDE)) goto cleanup;
+		if(0xDEADBEEF != bswap32(0xEFBEADDE)) goto cleanup;
+		if(0xDEADBEEFCAFEBABE != bswap64(0xBEBAFECAEFBEADDE)) goto cleanup;
+		// set with swap (host le -> be)
+		set16(buf, 0xDEAD, true);
+		if(memcmp(buf, "\xDE\xAD", 2)) goto cleanup;
+		set32(buf, 0xDEADBEEF, true);
+		if(memcmp(buf, "\xDE\xAD\xBE\xEF", 4)) goto cleanup;
+		set64(buf, 0xDEADBEEFCAFEBABE, true);
+		if(memcmp(buf, "\xDE\xAD\xBE\xEF\xCA\xFE\xBA\xBE", 8)) goto cleanup;
+		// set without swap
+		set16(buf, 0xDEAD, false);
+		if(memcmp(buf, "\xAD\xDE", 2)) goto cleanup;
+		set32(buf, 0xDEADBEEF, false);
+		if(memcmp(buf, "\xEF\xBE\xAD\xDE", 4)) goto cleanup;
+		set64(buf, 0xDEADBEEFCAFEBABE, false);
+		if(memcmp(buf, "\xBE\xBA\xFE\xCA\xEF\xBE\xAD\xDE", 8)) goto cleanup;
+		printf("TESTS PASSED!\n");
 	}
 
 	/*************************************************************************/

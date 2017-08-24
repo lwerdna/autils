@@ -1,8 +1,78 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
+#include <stdbool.h>
 
 #include "debug.h"
+
+/******************************************************************************
+ ENDIAN ISSUES
+******************************************************************************/
+
+uint16_t bswap16(uint16_t x)
+{
+	return ((x&0xFF)<<8) | (x>>8);
+}
+
+uint32_t bswap32(uint32_t x)
+{
+	return ((x&0xFF)<<24) |
+		((x&0xFF00)<<8) |
+		((x&0xFF0000)>>8) |
+		((x&0xFF000000)>>24);
+}
+
+uint64_t bswap64(uint64_t x)
+{
+	return ((x&0xFF)<<56) |
+		((x&0xFF00)<<40) |
+		((x&0xFF0000)<<24) |
+		((x&0xFF000000)<<8) |
+		((x&0xFF00000000)>>8) |
+		((x&0xFF0000000000)>>24) |
+		((x&0xFF000000000000)>>40) |
+		((x&0xFF00000000000000)>>56);
+
+}
+
+uint16_t fetch16(char *data, bool swap)
+{
+	uint16_t tmp = *(uint16_t *)data;
+	if(swap) tmp = bswap32(tmp);
+	return tmp;
+}
+
+uint32_t fetch32(char *data, bool swap)
+{
+	uint32_t tmp = *(uint32_t *)data;
+	if(swap) tmp = bswap32(tmp);
+	return tmp;
+}
+
+uint64_t fetch64(char *data, bool swap)
+{
+	uint64_t tmp = *(uint64_t *)data;
+	if(swap) tmp = bswap64(tmp);
+	return tmp;
+}
+
+void set16(char *addr, uint32_t val, bool swap)
+{
+	if(swap) val = bswap16(val);
+	*(uint16_t *)addr = val;
+}
+
+void set32(char *addr, uint32_t val, bool swap)
+{
+	if(swap) val = bswap32(val);
+	*(uint32_t *)addr = val;
+}
+
+void set64(char *addr, uint64_t val, bool swap)
+{
+	if(swap) val = bswap64(val);
+	*(uint64_t *)addr = val;
+}
 
 /******************************************************************************
  PARSE/PRINT

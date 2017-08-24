@@ -20,7 +20,7 @@ misc_get_py_ver(string &ver)
 	char *argv[3] = {s_python, s_V, NULL};
 	char *buf_ver = NULL;
 	
-	rc = launch(s_python, argv, &rc_sub, buf_stdout, 64, buf_stderr, 64);
+	rc = launch(s_python, argv, &rc_sub, buf_stdout, 64, buf_stderr, 64, true);
 
 	if(rc) return -1;
 	if(rc_sub) return -2;
