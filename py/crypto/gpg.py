@@ -435,7 +435,7 @@ class PgpPacket8(PgpPacket):
 	def __str__(self):
 		answer = "Packet (Tag 8): Compressed Data Packet\n"
 		answer += 'algorithm: %d (%s)\n' % (self.compression_id, compressIdToString[self.compression_id])
-		answer += getHexDump(0, self.body)
+		answer += getHexDump(self.body)
 		
 		return answer
 
@@ -449,7 +449,7 @@ class PgpPacket9(PgpPacket):
 
 	def __str__(self):
 		answer = "Packet (Tag 9): Symmetrically Encrypted Data\n"
-		answer += getHexDump(0, self.body)
+		answer += getHexDump(self.body)
 		
 		return answer
 
@@ -481,7 +481,7 @@ class PgpPacket11(PgpPacket):
 		answer += 'data type: %s\n' % self.dtype
 		answer += 'filename: %s\n' % self.fname
 		answer += 'date: %d\n' % self.date
-		answer += getHexDump(0, self.data)
+		answer += getHexDump(self.data)
 		
 		return answer
 
@@ -714,3 +714,4 @@ if __name__ == "__main__":
 			fp = open('packet11.gpg', 'wb')
 			fp.write(ptext)
 			fp.close()
+
