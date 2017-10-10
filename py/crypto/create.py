@@ -69,14 +69,14 @@ def create_pkt9(ptext, passphrase, salt):
 	while len(msg) < 65536:
 		msg = msg + salt + passphrase
 	msg = msg[0:65536]
-	print 'msg into hash: ', (msg[0:16]).encode('hex'), '...'
+	print 'msg into hash:', (msg[0:16]).encode('hex'), '...'
 
 	m = hashlib.sha1()								# hash it
 	m.update(msg)
 	digest = m.digest()
 
 	key = digest[0:16]								# CAST5 key is 16 bytes of hash
-	print 'CAST5 key: ', key.encode('hex')
+	print 'CAST5          key:', key.encode('hex')
 
 	# encrypt with OpenPGP CFB Mode (see 13.9)
 	prefix = os.urandom(8)
@@ -84,9 +84,9 @@ def create_pkt9(ptext, passphrase, salt):
 
 	FR = '\x00'*8
 	FRE = cast128_encrypt_block(FR, key)
-	print 'CAST5 first output: ', FRE.encode('hex')
+	print 'CAST5 first output:', FRE.encode('hex')
 	ctext = strxor(prefix, FRE)
-	print 'CAST5 first ctext: ', ctext.encode('hex')
+	print 'CAST5  first ctext:', ctext.encode('hex')
 
 	FR = ctext
 	FRE = cast128_encrypt_block(FR, key)
@@ -97,6 +97,7 @@ def create_pkt9(ptext, passphrase, salt):
 		FRE = cast128_encrypt_block(FR, key)
 		FR = strxor(ptext[0:8], FRE)
 		ctext += FR
+		print 'CAST5       update:', ctext.encode('hex')
 		ptext = ptext[8:]
 
 	return create_pkt(ctext, 9)

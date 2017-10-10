@@ -24,6 +24,7 @@
 
 import os
 import sys
+from binascii import hexlify
 from struct import pack, unpack
 from bitops import *
 
@@ -489,7 +490,7 @@ def cast128_encrypt_block(ptext, key):
 
 	# 2. Description of Algorithm
 
-	#print "encrypting %s with key %s" % (arr2str(m), arr2str(key))
+	#print "encrypting %s with key %s" % (hexlify(m), hexlify(key))
 
 	# 1. (key schedule) Compute 16 pairs of subkeys {K_mi, K_ri} from K
 	#	(see Sections 2.1 and 2.4).
@@ -602,7 +603,7 @@ if __name__ == '__main__':
 	if temp == ctext:
 		print "PASS"
 	else:
-		print "FAIL - got %s" % str2hex(temp)
+		print "FAIL - got %s" % hexlify(temp)
 		sys.exit(-1)
 
 	# test decrypt
@@ -610,7 +611,7 @@ if __name__ == '__main__':
 	if temp == ptext:
 		print "PASS"
 	else:
-		print "FAIL - got %s" % str2hex(temp)
+		print "FAIL - got %s" % hexlify(temp)
 		sys.exit(-1)
 
 	# maintenance test
@@ -625,7 +626,6 @@ if __name__ == '__main__':
 		aL = a[0:8]
 		aR = a[8:16]
 		aL = cast128_encrypt_block(aL, b)
-
 		aR = cast128_encrypt_block(aR, b)
 		a = aL + aR
 
@@ -640,8 +640,8 @@ if __name__ == '__main__':
 
 		i += 1
 	
-	print "a: %s" % arr2str(b)
-	print "b: %s" % arr2str(b)
+	print "a: %s" % hexlify(a)
+	print "b: %s" % hexlify(b)
 	
 	if a == "\xEE\xA9\xD0\xA2\x49\xFD\x3B\xA6\xB3\x43\x6F\xB8\x9D\x6D\xCA\x92" and \
 		b == "\xB2\xC9\x5E\xB0\x0C\x31\xAD\x71\x80\xAC\x05\xB8\xE8\x3D\x69\x6E":

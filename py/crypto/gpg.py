@@ -255,6 +255,7 @@ class S2KSpecifier:
 			while len(msg) < self.count:
 				msg = msg + self.salt + phrase
 			msg = msg[0:self.count]
+			print "hash input: %s..%s" % (binascii.hexlify(msg[0:16]), binascii.hexlify(msg[-16:]))
 
 			m.update(msg)
 
