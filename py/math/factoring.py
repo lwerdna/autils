@@ -26,7 +26,7 @@ import math
 import random
 import fractions
 
-from Group import Group
+from groups import Group
 from ZZn import ZZn
 
 ###############################################################################

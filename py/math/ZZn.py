@@ -20,7 +20,7 @@
 #
 #------------------------------------------------------------------------------
 
-from Group import Group, GroupElem
+from groups import Group, GroupElem
 import ZZn
 from algos import ExponentiationBySquaring
 
