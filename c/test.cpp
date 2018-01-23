@@ -32,33 +32,54 @@ int main(int ac, char **av)
 	}
 
 	/*************************************************************************/
+	/* test output */
+	/*************************************************************************/
+	if(!strcmp(av[1], "output")) {
+		const char *derp = "One, little, two, little, three, little endians. "
+			"Four, little, five, little, six, little endians. Seven, little, "
+			"eight, little, nine, little endians. Ten little endian boys!"
+			"\xBE\xBA\xFE\xCA\xEF\xBE\xAD\xDE";
+
+		printf("u8 output:\n");
+		dump_u8((void *)derp, 256, 0);
+		printf("u16 output:\n");
+		dump_u16((void *)derp, 256, 0);
+		printf("u32 output:\n");
+		dump_u32((void *)derp, 256, 0);
+		printf("u64 output:\n");
+		dump_u64((void *)derp, 256, 0);
+
+		printf("TESTS PASSED!\n");
+	}
+
+	/*************************************************************************/
 	/* test parsing */
 	/*************************************************************************/
 	if(!strcmp(av[1], "parsing")) {
 		uint8_t result[4];
-		char *bits1[4] = {"11", "0", "1", "1110"};
-		char *bits2[4] = {"11", "0111", "1010", "101101"};
-		char *bits3[4] = {"1", "1011", "1101010110110111", "110"};
-		char *bits4[4] = {"11011110", "1010110110", "11111011101", "111"};
+		const char *bits1[4] = {"11", "0", "1", "1110"};
+		const char *bits2[4] = {"11", "0111", "1010", "101101"};
+		const char *bits3[4] = {"1", "1011", "1101010110110111", "110"};
+		const char *bits4[4] = {"11011110", "1010110110", "11111011101", "111"};
 		// bits -> 4 bytes
 		memset(result, '\x00', sizeof(result));
 		if(0 != parse_bit_list(bits4, 4, result)) goto cleanup;
-		dump_bytes(result, 4, 0);
+		dump_u8(result, 4, 0);
 		if(memcmp(result, "\xde\xad\xbe\xef", 4)) goto cleanup;
 		// bits -> 3 bytes
 		memset(result, '\x00', sizeof(result));
 		if(0 != parse_bit_list(bits3, 4, result)) goto cleanup;
-		dump_bytes(result, 4, 0);
+		dump_u8(result, 4, 0);
 		if(memcmp(result, "\xde\xad\xbe", 3)) goto cleanup;
 		// bits -> 2 bytes
 		memset(result, '\x00', sizeof(result));
 		if(0 != parse_bit_list(bits2, 4, result)) goto cleanup;
-		dump_bytes(result, 4, 0);
+		dump_u8(result, 4, 0);
 		if(memcmp(result, "\xde\xad", 2)) goto cleanup;
 		// bits -> 1 byte
 		memset(result, '\x00', sizeof(result));
 		if(0 != parse_bit_list(bits1, 4, result)) goto cleanup;
-		dump_bytes(result, 4, 0);
+		dump_u8(result, 4, 0);
 		if(memcmp(result, "\xde", 1)) goto cleanup;
 		printf("TESTS PASSED!\n");
 	}

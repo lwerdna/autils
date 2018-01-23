@@ -33,10 +33,10 @@ void debug_err(char *fmt, ...)
     va_end(args);
 }
 
-void debug_dump_bytes(uint8_t *buf, int len, unsigned int addr)
+void debug_dump_u8(uint8_t *buf, int len, unsigned int addr)
 {
 	#ifdef DEBUG
-	dump_bytes(buf, len, addr);
+	dump_u8(buf, len, addr);
 	#endif
 }
 

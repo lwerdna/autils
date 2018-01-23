@@ -7,7 +7,7 @@
 #include "debug.h"
 
 /* convert ["11011110", "1010110110", "11111011101", "111"] -> "\xDE\xAD\xBE\xEF" */
-int parse_bit_list(char **str_bits, unsigned int n_bitstrs, uint8_t *result)
+int parse_bit_list(const char **str_bits, unsigned int n_bitstrs, uint8_t *result)
 {
     int i, j, total_bytes, rc=-1;
 	uint64_t temp = 0;
@@ -17,7 +17,7 @@ int parse_bit_list(char **str_bits, unsigned int n_bitstrs, uint8_t *result)
 		total_bytes += strlen(str_bits[i]);
 	total_bytes = (total_bytes + 7)/8;
 
-	if(total_bytes > sizeof(temp))
+	if(total_bytes > sizeof(temp) || total_bytes < 1)
 		goto cleanup;
 
     for(i=0; i<n_bitstrs; ++i) {
@@ -47,7 +47,7 @@ int parse_bit_list(char **str_bits, unsigned int n_bitstrs, uint8_t *result)
 }
 
 /* convert ["AB", "CD", "EF", "12", ...] -> "\xAB\xCD\xEF\x12..." */
-int parse_byte_list(char **str_bytes, unsigned int n_bytes, uint8_t *result)
+int parse_byte_list(const char **str_bytes, unsigned int n_bytes, uint8_t *result)
 {
     int rc = -1;
     int i = 0;
@@ -68,7 +68,7 @@ int parse_byte_list(char **str_bytes, unsigned int n_bytes, uint8_t *result)
 
 /* convert "DEADBEEF LBABE"    or 
            "DEADBEEF DEAE79AC" -> [0xDEADBEEF, 0xDEAE79AC] */
-int parse_addr_range(int ac, char **av, uintptr_t *addr, unsigned int *len)
+int parse_addr_range(int ac, const char **av, uintptr_t *addr, unsigned int *len)
 {
     int rc = -1;
 
@@ -107,7 +107,7 @@ int parse_addr_range(int ac, char **av, uintptr_t *addr, unsigned int *len)
 }
 
 /* convert "DEADBEEF AB CD EF ..." -> [0xDEADBEEF, "\xAB\xCD\xEF..."] */
-int parse_addr_bytelist(int ac, char **av, uintptr_t *addr, uint8_t *bytes)
+int parse_addr_bytelist(int ac, const char **av, uintptr_t *addr, uint8_t *bytes)
 {
     int rc = -1;
     int i;
@@ -136,7 +136,7 @@ int parse_addr_bytelist(int ac, char **av, uintptr_t *addr, uint8_t *bytes)
 /* this parses commands like search, which take form:
     search <start_address> <end_address> <0_or_more_bytes>
 */
-int parse_addr_range_bytelist(int ac, char **av, uintptr_t *addr, unsigned int *len, uint8_t *bytes)
+int parse_addr_range_bytelist(int ac, const char **av, uintptr_t *addr, unsigned int *len, uint8_t *bytes)
 {
     int rc = -1;
     int i;
