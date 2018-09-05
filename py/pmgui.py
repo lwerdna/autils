@@ -30,10 +30,11 @@ class PmGui():
 				self.root.title(title)
 				continue
 
-			m = re.match(r'^slider (\d+) (\d+)$', c)
+			m = re.match(r'^slider (.+) (.+) (.+) (.+)$', c)
 			if m:
-				(minval, maxval) = m.group(1,2)
-				widg = Tkinter.Scale(self.root, from_=minval, to=maxval, orient=Tkinter.HORIZONTAL)
+				(minval, maxval, resolution, default) = m.group(1,2,3,4)
+				widg = Tkinter.Scale(self.root, from_=minval, to=maxval, resolution=float(resolution), orient=Tkinter.HORIZONTAL)
+				widg.set(float(default))
 				widg.pack()
 				self.widgets_in.append(('slider', widg))
 				continue
@@ -58,13 +59,15 @@ class PmGui():
 				photo = ImageTk.PhotoImage(img)
 
 				# create canvas
-				canv = Tkinter.Canvas(self.root, width=w, height=h)
+				canv = Tkinter.Canvas(self.root, width=w, height=h, borderwidth=0, highlightthickness=0)
 				canv.create_image(0, 0, anchor=Tkinter.NW, image=photo)
 				canv.pack()
 
 				self.widgets_out.append(('image', w, h, canv, photo))
 				continue
-	
+
+			raise Exception('unknown GUI element: %s' % c)
+
 	def get(self):
 		self.root.update_idletasks()
 		self.root.update()
@@ -101,11 +104,11 @@ if __name__ == '__main__':
 	widgets_txt = [	
 			'window 640 480 GUI test',
 			'label red:',
-			'slider 0 255',
+			'slider 0 255 1 50',
 			'label green:',
-			'slider 0 255',
+			'slider 0 255 1 150',
 			'label blue:',
-			'slider 0 255',
+			'slider 0 255 1 250',
 			'image 320 160'
 		]
 
